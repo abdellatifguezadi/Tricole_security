@@ -1,0 +1,71 @@
+package org.tricol.supplierchain.entity;
+
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import lombok.Data;
+import org.tricol.supplierchain.enums.StatutCommande;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+@Entity
+@Table(name = "commande_fournisseur")
+@Data
+public class CommandeFournisseur {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "numero_commande", nullable = false, unique = true)
+    private String numeroCommande;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "fournisseur_id", nullable = false)
+    private Fournisseur fournisseur;
+
+    @Column(name = "date_commande", nullable = false)
+    private LocalDateTime dateCommande;
+
+    @Column(name = "date_livraison_prevue")
+    private LocalDate dateLivraisonPrevue;
+
+    @Column(name = "date_livraison_effective")
+    private LocalDate dateLivraisonEffective;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "statut", nullable = false, length = 20)
+    private StatutCommande statut = StatutCommande.EN_ATTENTE;
+
+    @Column(name = "montant_total", nullable = false, precision = 12, scale = 2)
+    private BigDecimal montantTotal = BigDecimal.ZERO;
+
+    @OneToMany(mappedBy = "commande", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<LigneCommande> lignesCommande = new ArrayList<>();
+
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        if (dateCommande == null) {
+            dateCommande = LocalDateTime.now();
+        }
+        if (updatedAt == null) {
+            updatedAt = LocalDateTime.now();
+        }
+    }
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+
+
+}
