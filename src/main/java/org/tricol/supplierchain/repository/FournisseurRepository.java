@@ -1,5 +1,7 @@
 package org.tricol.supplierchain.repository;
 
-// Example class: Spring Data JPA repository for Fournisseur
-public interface FournisseurRepository {
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.tricol.supplierchain.entity.Fournisseur;
+
+public interface FournisseurRepository extends JpaRepository<Fournisseur, Long> {
 }
