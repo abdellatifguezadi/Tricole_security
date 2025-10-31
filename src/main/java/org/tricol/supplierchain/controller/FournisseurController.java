@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.tricol.supplierchain.dto.request.FournisseurRequestDTO;
+import org.tricol.supplierchain.dto.request.FournisseurUpdateDTO;
 import org.tricol.supplierchain.dto.response.FournisseurResponseDTO;
 import org.tricol.supplierchain.entity.Fournisseur;
 import org.tricol.supplierchain.service.inter.FournisseurService;
@@ -44,6 +45,15 @@ public class FournisseurController {
         FournisseurResponseDTO fournisseur = fournisseurService.getFournisseur(id);
         return ResponseEntity.ok(fournisseur);
     }
+
+
+    @PutMapping("/{id}")
+    public ResponseEntity<FournisseurResponseDTO> updateFournisseur(@PathVariable Long id, @Valid @RequestBody FournisseurUpdateDTO fournisseurUpdateDTO) {
+        FournisseurResponseDTO updatedFournisseur = fournisseurService.modifieFournisseur(id,fournisseurUpdateDTO );
+        return ResponseEntity.ok(updatedFournisseur);
+    }
+
+
 
 
 }

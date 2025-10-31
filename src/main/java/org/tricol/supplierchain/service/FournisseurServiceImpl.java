@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 import org.tricol.supplierchain.dto.request.FournisseurRequestDTO;
+import org.tricol.supplierchain.dto.request.FournisseurUpdateDTO;
 import org.tricol.supplierchain.dto.response.FournisseurResponseDTO;
 import org.tricol.supplierchain.entity.Fournisseur;
 import org.tricol.supplierchain.exception.DuplicateResourceException;
@@ -56,6 +57,30 @@ public class FournisseurServiceImpl implements FournisseurService {
         Fournisseur fournisseur = fournisseurRepository.findById(id)
                 .orElseThrow(()-> new IllegalArgumentException("Fournisseur avec l'id " + id + " non trouvé."));
         return fournisseurMapper.toResponseDTO(fournisseur);
+    }
+
+    @Override
+    public FournisseurResponseDTO modifieFournisseur(Long id, FournisseurUpdateDTO updateDTO) {
+
+
+        Fournisseur fournisseur = fournisseurRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Fournisseur avec l'id " + id + " non trouvé."));
+
+        if (updateDTO.getIce() != null && !updateDTO.getIce().equals(fournisseur.getIce())
+                && fournisseurRepository.existsByIce(updateDTO.getIce())) {
+            throw new DuplicateResourceException("Fournisseur avec ICE " + updateDTO.getIce() + " existe déjà.");
+        }
+
+        if (updateDTO.getEmail() != null && !updateDTO.getEmail().equals(fournisseur.getEmail())
+                && fournisseurRepository.existsByEmail(updateDTO.getEmail())) {
+            throw new DuplicateResourceException("Fournisseur avec email " + updateDTO.getEmail() + " existe déjà.");
+        }
+
+        fournisseurMapper.updateEntityFromDto(updateDTO, fournisseur);
+
+        Fournisseur updated = fournisseurRepository.save(fournisseur);
+
+        return fournisseurMapper.toResponseDTO(updated);
     }
 
 
