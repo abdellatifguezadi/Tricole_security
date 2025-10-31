@@ -47,7 +47,15 @@ public class FournisseurServiceImpl implements FournisseurService {
     public void deleteFournisseur(Long id) {
         Fournisseur fournisseur = fournisseurRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Fournisseur avec l'id " + id + " non trouvé."));
-        fournisseurRepository.delete(fournisseur);;
+        fournisseurRepository.delete(fournisseur);
+    }
+
+
+    @Override
+    public FournisseurResponseDTO getFournisseur(Long id) {
+        Fournisseur fournisseur = fournisseurRepository.findById(id)
+                .orElseThrow(()-> new IllegalArgumentException("Fournisseur avec l'id " + id + " non trouvé."));
+        return fournisseurMapper.toResponseDTO(fournisseur);
     }
 
 
