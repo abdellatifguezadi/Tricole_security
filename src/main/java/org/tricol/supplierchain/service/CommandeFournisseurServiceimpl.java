@@ -187,7 +187,6 @@ public class CommandeFournisseurServiceimpl implements CommandeFournisseurServic
                     .build();
             mouvementStockRepository.save(mouvement);
 
-
             produit.setStockActuel(produit.getStockActuel().add(ligne.getQuantite()));
 
             produitRepository.save(produit);
