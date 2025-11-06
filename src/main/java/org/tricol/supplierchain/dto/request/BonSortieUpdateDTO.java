@@ -11,7 +11,6 @@ import java.util.List;
 @Data
 public class BonSortieUpdateDTO {
 
-    private String numeroBon;
 
     private LocalDate dateSortie;
 

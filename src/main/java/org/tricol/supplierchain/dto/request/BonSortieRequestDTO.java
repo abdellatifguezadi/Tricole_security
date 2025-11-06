@@ -14,14 +14,9 @@ import java.util.List;
 @Data
 public class BonSortieRequestDTO {
 
-    @NotBlank(message = "Le numéro de bon est obligatoire")
-    private String numeroBon;
 
     @NotNull(message = "La date de sortie est obligatoire")
     private LocalDate dateSortie;
-
-    @NotNull(message = "Le statut est obligatoire")
-    private StatutBonSortie statut;
 
     @NotNull(message = "Le motif est obligatoire")
     private MotifBonSortie motif;
