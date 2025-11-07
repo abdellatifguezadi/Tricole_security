@@ -1,10 +1,8 @@
 package org.tricol.supplierchain.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
+import org.tricol.supplierchain.enums.Atelier;
 import org.tricol.supplierchain.enums.MotifBonSortie;
 import org.tricol.supplierchain.enums.StatutBonSortie;
 
@@ -32,6 +30,10 @@ public class BonSortie {
     private StatutBonSortie statut;
     @Enumerated(EnumType.STRING)
     private MotifBonSortie motif;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "atelier")
+    private Atelier atelier;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime dateCreation;
