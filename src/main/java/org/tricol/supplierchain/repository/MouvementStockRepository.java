@@ -17,5 +17,5 @@ public interface MouvementStockRepository extends JpaRepository<MouvementStock, 
 
     List<MouvementStock> findByReferenceOrderByDateMouvementDesc(String reference);
 
-
+//    List<MouvementStock> findAllByOrderByDateMouvementDesc();
 }

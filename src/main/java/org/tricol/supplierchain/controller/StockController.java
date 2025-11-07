@@ -1,0 +1,23 @@
+package org.tricol.supplierchain.controller;
+
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.tricol.supplierchain.dto.response.StockGlobalResponseDTO;
+import org.tricol.supplierchain.service.inter.GestionStock;
+
+@RestController
+@RequestMapping("/api/v1/stock")
+@RequiredArgsConstructor
+public class StockController {
+    private final GestionStock stockService;
+
+
+    @GetMapping
+    public ResponseEntity<StockGlobalResponseDTO> getStockGlobal() {
+        return ResponseEntity.ok(stockService.getStockGlobal());
+    }
+}
