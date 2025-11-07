@@ -25,4 +25,6 @@ public interface LotStockRepository extends JpaRepository<LotStock, Long> {
 
     List<LotStock> findByStatut(StatutLot statut);
 
+    List<LotStock> findByProduitIdOrderByDateEntreeAsc(Long produitId);
+
 }
