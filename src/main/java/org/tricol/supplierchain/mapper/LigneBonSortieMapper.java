@@ -11,6 +11,7 @@ public interface LigneBonSortieMapper {
 
     LigneBonSortie toEntity(LigneBonSortieRequestDTO ligneBonSortieRequestDTO);
 
+
     LigneBonSortieResponseDTO toResponseDTO(LigneBonSortie ligneBonSortie);
 }
 

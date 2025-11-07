@@ -15,6 +15,6 @@ public interface BonSortieMapper {
     BonSortieResponseDTO toResponseDTO(BonSortie bonSortie);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "ligneBonSorties", ignore = true)
     void updateEntityFromDto(BonSortieUpdateDTO bonSortieUpdateDTO, @MappingTarget BonSortie bonSortie);
 }
-

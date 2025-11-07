@@ -1,6 +1,7 @@
 package org.tricol.supplierchain.service.inter;
 
 import org.tricol.supplierchain.dto.request.BonSortieRequestDTO;
+import org.tricol.supplierchain.dto.request.BonSortieUpdateDTO;
 import org.tricol.supplierchain.dto.response.BonSortieResponseDTO;
 import org.tricol.supplierchain.enums.Atelier;
 
@@ -17,4 +18,6 @@ public interface BonSortieService {
     void deleteBonSortie(Long id);
 
     List<BonSortieResponseDTO> getBonSortiesByAtelier(Atelier atelier);
+
+    BonSortieResponseDTO updateBonSortie(Long id, BonSortieUpdateDTO requestDTO);
 }
