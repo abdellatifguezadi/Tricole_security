@@ -2,7 +2,9 @@ package org.tricol.supplierchain.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.tricol.supplierchain.dto.request.BonSortieRequestDTO;
+import org.tricol.supplierchain.dto.request.BonSortieUpdateDTO;
 import org.tricol.supplierchain.dto.request.LigneBonSortieRequestDTO;
 import org.tricol.supplierchain.dto.response.BonSortieResponseDTO;
 import org.tricol.supplierchain.entity.BonSortie;
@@ -23,6 +25,7 @@ import java.util.UUID;
 
 @RequiredArgsConstructor
 @Service
+@Transactional
 public class BonSortieServiceImpl implements BonSortieService {
 
     private final BonSortieRepository bonSortieRepository;
@@ -100,5 +103,33 @@ public class BonSortieServiceImpl implements BonSortieService {
         return Bons;
     }
 
+    @Override
+    public BonSortieResponseDTO updateBonSortie(Long id, BonSortieUpdateDTO requestDTO) {
+        BonSortie existingBonSortie = bonSortieRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Bon de sortie non trouvé avec l'id " + id));
 
+        if(existingBonSortie.getStatut() != StatutBonSortie.BROUILLON) {
+            throw new BusinessException("Seul les bons de sortie en statut BROUILLON peuvent être modifiés.");
+        }
+        
+        if (requestDTO.getLigneBonSorties() != null && !requestDTO.getLigneBonSorties().isEmpty()) {
+            existingBonSortie.getLigneBonSorties().clear();
+
+            for (LigneBonSortieRequestDTO lineDto : requestDTO.getLigneBonSorties()) {
+                Produit produit = produitRepository.findById(lineDto.getProduitId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Produit non trouvé avec l'id " + lineDto.getProduitId()));
+                LigneBonSortie ligne = LigneBonSortie.builder()
+                        .produit(produit)
+                        .quantite(lineDto.getQuantite())
+                        .bonSortie(existingBonSortie)
+                        .build();
+                existingBonSortie.getLigneBonSorties().add(ligne);
+            }
+        }
+        bonSortieMapper.updateEntityFromDto(requestDTO, existingBonSortie);
+
+        BonSortie savedBonSortie = bonSortieRepository.save(existingBonSortie);
+
+        return bonSortieMapper.toResponseDTO(savedBonSortie);
+    }
 }
