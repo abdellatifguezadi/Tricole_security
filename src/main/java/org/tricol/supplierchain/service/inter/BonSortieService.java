@@ -22,4 +22,6 @@ public interface BonSortieService {
     BonSortieResponseDTO updateBonSortie(Long id, BonSortieUpdateDTO requestDTO);
 
     void annulationBonSortie(Long id);
+
+    BonSortieResponseDTO validationBonSortie(Long id);
 }

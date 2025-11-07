@@ -7,18 +7,21 @@ import org.tricol.supplierchain.dto.request.BonSortieRequestDTO;
 import org.tricol.supplierchain.dto.request.BonSortieUpdateDTO;
 import org.tricol.supplierchain.dto.request.LigneBonSortieRequestDTO;
 import org.tricol.supplierchain.dto.response.BonSortieResponseDTO;
-import org.tricol.supplierchain.entity.BonSortie;
-import org.tricol.supplierchain.entity.LigneBonSortie;
-import org.tricol.supplierchain.entity.Produit;
+import org.tricol.supplierchain.entity.*;
 import org.tricol.supplierchain.enums.Atelier;
 import org.tricol.supplierchain.enums.StatutBonSortie;
+import org.tricol.supplierchain.enums.TypeMouvement;
 import org.tricol.supplierchain.exception.BusinessException;
 import org.tricol.supplierchain.exception.ResourceNotFoundException;
 import org.tricol.supplierchain.mapper.BonSortieMapper;
 import org.tricol.supplierchain.repository.BonSortieRepository;
+import org.tricol.supplierchain.repository.LotStockRepository;
+import org.tricol.supplierchain.repository.MouvementStockRepository;
 import org.tricol.supplierchain.repository.ProduitRepository;
 import org.tricol.supplierchain.service.inter.BonSortieService;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -30,6 +33,8 @@ public class BonSortieServiceImpl implements BonSortieService {
 
     private final BonSortieRepository bonSortieRepository;
     private final ProduitRepository produitRepository;
+    private  final LotStockRepository  lotStockRepository;
+    private final MouvementStockRepository mouvementStockRepository;
     private final BonSortieMapper bonSortieMapper;
 
 
@@ -142,5 +147,60 @@ public class BonSortieServiceImpl implements BonSortieService {
         }
         bonSortie.setStatut(StatutBonSortie.ANNULE);
         bonSortieRepository.save(bonSortie);
+    }
+
+    @Override
+    public BonSortieResponseDTO validationBonSortie(Long id) {
+        BonSortie bonSortie = bonSortieRepository.findById(id)
+                .orElseThrow(()-> new ResourceNotFoundException("Bon de sortie non trouvé avec l'id " + id));
+
+        if(bonSortie.getStatut() != StatutBonSortie.BROUILLON) {
+            throw new BusinessException("Seul les bons de sortie en statut BROUILLON peuvent être annulés.");
+        }
+
+        for(LigneBonSortie ligne :  bonSortie.getLigneBonSorties()) {
+
+            List<LotStock> lotStocks = lotStockRepository.findByProduitIdOrderByDateEntreeAsc(ligne.getProduit().getId());            // lot 1 fih p1
+
+            BigDecimal quantiteRestante = ligne.getQuantite();
+
+
+            for(LotStock lotStock : lotStocks) {
+
+                if (quantiteRestante.compareTo(BigDecimal.ZERO) <= 0) {
+                    break;
+                }
+
+                BigDecimal quantiteDisponible = lotStock.getQuantiteRestante();
+
+                if (quantiteDisponible.compareTo(BigDecimal.ZERO) <= 0) {
+                    continue;
+                }
+
+                BigDecimal quantiteALever = quantiteDisponible.min(quantiteRestante);
+
+                MouvementStock mv = MouvementStock.builder()
+                        .produit(ligne.getProduit())
+                        .lotStock(lotStock)
+                        .typeMouvement(TypeMouvement.SORTIE)
+                        .quantite(quantiteALever)
+                        .dateMouvement(LocalDateTime.now())
+                        .reference(bonSortie.getNumeroBon())
+                        .motif(bonSortie.getMotif().name())
+                        .build();
+                mouvementStockRepository.save(mv);
+
+                lotStock.setQuantiteRestante(lotStock.getQuantiteRestante().subtract(quantiteALever));
+                lotStockRepository.save(lotStock);
+
+                quantiteRestante = quantiteRestante.subtract(quantiteALever);
+            }
+            if (quantiteRestante.compareTo(BigDecimal.ZERO) > 0) {
+                throw new BusinessException("Stock insuffisant pour le produit : " + ligne.getProduit().getNom());
+            }
+        }
+        bonSortie.setStatut(StatutBonSortie.VALIDE);
+        bonSortieRepository.save(bonSortie);
+       return  bonSortieMapper.toResponseDTO(bonSortie);
     }
 }
