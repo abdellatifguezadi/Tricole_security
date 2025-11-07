@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.tricol.supplierchain.dto.response.MouvementStockResponseDTO;
 import org.tricol.supplierchain.dto.response.StockGlobalResponseDTO;
 import org.tricol.supplierchain.dto.response.StockProduitResponseDTO;
+import org.tricol.supplierchain.mapper.MouvementStockMapper;
 import org.tricol.supplierchain.service.inter.GestionStock;
 
 import java.util.List;
@@ -36,5 +37,10 @@ public class StockController {
     @GetMapping("/mouvements")
     public ResponseEntity<List<MouvementStockResponseDTO>> getMouvementsHistorique(){
         return ResponseEntity.ok(stockService.getHistoriqueMouvements());
+    }
+
+    @GetMapping("/mouvements/produit/{id}")
+    public ResponseEntity<List<MouvementStockResponseDTO>> getMouvementsByProduit(@PathVariable Long id){
+        return ResponseEntity.ok(stockService.getMouvementsByProduit(id));
     }
 }

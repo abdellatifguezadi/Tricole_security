@@ -82,7 +82,12 @@ public class GestionStockImpl implements GestionStock {
 
     @Override
     public List<MouvementStockResponseDTO> getMouvementsByProduit(Long produitId) {
-        return List.of();
+        return mouvementStockRepository.findAll()
+                .stream()
+                .map(mouvementStockMapper::toResponseDTO)
+                .filter(m->m.getProduitId().equals(produitId))
+                .sorted(Comparator.comparing(MouvementStockResponseDTO::getDateMouvement))
+                .toList();
     }
 
     @Override
