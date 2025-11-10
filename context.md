@@ -2,7 +2,7 @@
 
 ### Travail en binôme
 
-## Contexte
+
 
 L’entreprise **Tricol**, spécialisée dans la conception et la fabrication de vêtements professionnels, poursuit la digitalisation de ses processus internes.  
 Après la mise en place du module de gestion des fournisseurs, la direction souhaite développer un module complémentaire dédié à la gestion des commandes fournisseurs et du stock avec la valorisation **FIFO**.
@@ -102,20 +102,7 @@ La validation du bon déclenche automatiquement les mouvements de stock FIFO.
 
 ---
 
-## Exigences techniques
 
-### Technologies principales
-
-- Utilisation de **Spring Boot** pour développer l’API
-- **Spring Data JPA**
-- **MapStruct** (pour le mapping Entity–DTO)
-- **Liquibase** (pour la gestion des migrations de base de données)
-- **Swagger / OpenAPI** (pour la documentation automatique)
-- La validation de données est obligatoire
-- Gestion centralisée des exceptions
-- Application organisée en couches
-
----
 
 ## API REST attendue
 
