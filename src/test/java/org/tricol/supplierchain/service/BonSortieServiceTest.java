@@ -112,19 +112,25 @@ public class BonSortieServiceTest {
     public void testConsumationPlusieursLots() {
         LotStock lotStock1 = LotStock.builder()
                 .id(1L)
-                .quantiteRestante(new BigDecimal("5"))
+                .quantiteRestante(new BigDecimal("2"))
                 .prixUnitaireAchat(new BigDecimal("5"))
                 .dateEntree(LocalDateTime.now().minusDays(10))
                 .build();
 
         LotStock lotStock2 = LotStock.builder()
+                .quantiteRestante(new BigDecimal("2"))
+                .prixUnitaireAchat(new BigDecimal("6"))
+                .dateEntree(LocalDateTime.now().minusDays(5))
+                .build();
+
+        LotStock lotStock3 = LotStock.builder()
                 .quantiteRestante(new BigDecimal("10"))
                 .prixUnitaireAchat(new BigDecimal("6"))
                 .dateEntree(LocalDateTime.now().minusDays(5))
                 .build();
 
         when(lotStockRepository.findByProduitIdOrderByDateEntreeAsc(1L))
-                .thenReturn(List.of(lotStock1, lotStock2));
+                .thenReturn(List.of(lotStock1, lotStock2 , lotStock3));
 
 
         when(bonSortieMapper.toResponseDTO(any())).thenReturn(new BonSortieResponseDTO());
@@ -132,15 +138,33 @@ public class BonSortieServiceTest {
         BonSortieResponseDTO responseDTO = bonSortieService.performActualValidation(bonSortie);
 
         assertThat(responseDTO).isNotNull();
-        verify(mouvementStockRepository, times(2)).save(any());
-        verify(lotStockRepository,times(2)).save(any());
+        verify(mouvementStockRepository, times(3)).save(any());
+        verify(lotStockRepository,times(3)).save(any());
         verify(bonSortieRepository,times(1)).save(any());
 
         assertThat(lotStock1.getQuantiteRestante()).isEqualTo(BigDecimal.ZERO);
-        assertThat(lotStock2.getQuantiteRestante()).isEqualTo(new BigDecimal("5"));
+        assertThat(lotStock2.getQuantiteRestante()).isEqualTo(BigDecimal.ZERO);
+        assertThat(lotStock3.getQuantiteRestante()).isEqualTo(new BigDecimal("7"));
 
     }
 
+
+    @Test
+    public void testStockInsuffisant() {
+        LotStock lotStock = LotStock.builder()
+                .id(1L)
+                .quantiteRestante(new BigDecimal("5"))
+                .prixUnitaireAchat(new BigDecimal("5"))
+                .dateEntree(LocalDateTime.now().minusDays(5))
+                .build();
+
+        when(lotStockRepository.findByProduitIdOrderByDateEntreeAsc(1L))
+                .thenReturn(List.of(lotStock));
+
+        assertThatThrownBy(() -> bonSortieService.performActualValidation(bonSortie))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Stock insuffisant pour le produit");
+    }
 
 
 
