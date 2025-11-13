@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -11,6 +12,7 @@ import org.tricol.supplierchain.dto.response.BonSortieResponseDTO;
 import org.tricol.supplierchain.entity.BonSortie;
 import org.tricol.supplierchain.entity.LigneBonSortie;
 import org.tricol.supplierchain.entity.LotStock;
+import org.tricol.supplierchain.entity.MouvementStock;
 import org.tricol.supplierchain.entity.Produit;
 import org.tricol.supplierchain.enums.StatutBonSortie;
 import org.tricol.supplierchain.enums.TypeMouvement;
@@ -294,6 +296,41 @@ public class BonSortieServiceTest {
         assertThat(produit.getStockActuel()).isEqualTo(new BigDecimal("20"));
 
         assertThat(bonSortie.getMontantTotal()).isEqualTo(new BigDecimal("50"));
+    }
+
+    @Test
+    @DisplayName("Vérifier la création du MouvementStock lors de la validation d'un bon de sortie")
+    public void testCreationMouvementStockOnValidation() {
+        when(bonSortieRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(lotStockRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(mouvementStockRepository.save(any()))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        LotStock lotStock = LotStock.builder()
+                .id(1L)
+                .quantiteRestante(new BigDecimal("20"))
+                .prixUnitaireAchat(new BigDecimal("5"))
+                .dateEntree(LocalDateTime.now().minusDays(5))
+                .build();
+
+        when(lotStockRepository.findByProduitIdOrderByDateEntreeAsc(1L))
+                .thenReturn(List.of(lotStock));
+
+        when(bonSortieMapper.toResponseDTO(any())).thenReturn(new BonSortieResponseDTO());
+
+        bonSortieService.performActualValidation(bonSortie);
+
+        ArgumentCaptor<MouvementStock> mvCaptor = ArgumentCaptor.forClass(MouvementStock.class);
+        verify(mouvementStockRepository, times(1)).save(mvCaptor.capture());
+        MouvementStock savedMv = mvCaptor.getValue();
+
+        assertThat(savedMv).isNotNull();
+        assertThat(savedMv.getTypeMouvement()).isEqualTo(TypeMouvement.SORTIE);
+        assertThat(savedMv.getQuantite()).isEqualTo(new BigDecimal("10"));
+        assertThat(savedMv.getReference()).isEqualTo(bonSortie.getNumeroBon());
+        assertThat(savedMv.getProduit()).isEqualTo(produit);
+        assertThat(savedMv.getMotif()).isEqualTo(bonSortie.getMotif().name());
+        assertThat(savedMv.getDateMouvement()).isNotNull();
     }
 
 }
