@@ -50,11 +50,13 @@ class CommandeFournisseurServiceTest {
                 .stockActuel(new BigDecimal("20"))
                 .build();
 
+
         LigneCommande ligne = LigneCommande.builder()
                 .produit(produit)
                 .quantite(new BigDecimal("50"))
                 .prixUnitaire(new BigDecimal("12"))
                 .build();
+
 
         CommandeFournisseur commande = CommandeFournisseur.builder()
                 .id(1L)
@@ -65,10 +67,6 @@ class CommandeFournisseurServiceTest {
 
         when(commandeFournisseurRepository.findById(1L)).thenReturn(Optional.of(commande));
         when(commandeFournisseurMapper.toResponseDto(any())).thenReturn(new CommandeFournisseurResponseDTO());
-        when(lotStockRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(mouvementStockRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(produitRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(commandeFournisseurRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         CommandeFournisseurResponseDTO dto = service.receiveCommande(1L);
 
@@ -100,6 +98,7 @@ class CommandeFournisseurServiceTest {
         verify(produitRepository, times(1)).save(prodCaptor.capture());
         Produit savedProduit = prodCaptor.getValue();
         assertThat(savedProduit.getStockActuel()).isEqualByComparingTo(new BigDecimal("70"));
+
 
         assertThat(dto).isNotNull();
     }

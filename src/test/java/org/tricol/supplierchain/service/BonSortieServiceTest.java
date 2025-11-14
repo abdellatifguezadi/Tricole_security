@@ -88,14 +88,7 @@ public class BonSortieServiceTest {
     @Test
     @DisplayName("Scénario 1 : Sortie simple consommant partiellement un seul lot")
     public void testConsumationUnSeulLot() {
-        when(bonSortieRepository.save(any()))
-                .thenAnswer(inv -> inv.getArgument(0));
 
-        when(lotStockRepository.save(any()))
-                .thenAnswer(inv -> inv.getArgument(0));
-
-        when(mouvementStockRepository.save(any()))
-                .thenAnswer(inv -> inv.getArgument(0));
 
         LotStock lotStock = LotStock.builder()
                 .id(1L)
@@ -130,14 +123,6 @@ public class BonSortieServiceTest {
     @Test
     @DisplayName("Scénario 2 : Sortie nécessitant la consommation de plusieurs lots successifs")
     public void testConsumationPlusieursLots() {
-        when(bonSortieRepository.save(any()))
-                .thenAnswer(inv -> inv.getArgument(0));
-
-        when(lotStockRepository.save(any()))
-                .thenAnswer(inv -> inv.getArgument(0));
-
-        when(mouvementStockRepository.save(any()))
-                .thenAnswer(inv -> inv.getArgument(0));
 
         LotStock lotStock1 = LotStock.builder()
                 .id(1L)
@@ -220,14 +205,7 @@ public class BonSortieServiceTest {
     @Test
     @DisplayName("Scénario 4 : Sortie épuisant exactement le stock disponible")
     public void testConsumationCompletLots() {
-        when(bonSortieRepository.save(any()))
-                .thenAnswer(inv -> inv.getArgument(0));
 
-        when(lotStockRepository.save(any()))
-                .thenAnswer(inv -> inv.getArgument(0));
-
-        when(mouvementStockRepository.save(any()))
-                .thenAnswer(inv -> inv.getArgument(0));
 
         LotStock lotStock1 = LotStock.builder()
                 .id(1L)
@@ -269,10 +247,6 @@ public class BonSortieServiceTest {
     public void testStatusChange() {
         when(bonSortieRepository.findById(1L)).thenReturn(Optional.of(bonSortie));
         when(gestionStockService.verifyStockPourBonSortie(bonSortie)).thenReturn(List.of());
-
-        when(bonSortieRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(lotStockRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(mouvementStockRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(bonSortieMapper.toResponseDTO(any())).thenReturn(new BonSortieResponseDTO());
 
         LotStock lotStock = LotStock.builder()
@@ -301,10 +275,6 @@ public class BonSortieServiceTest {
     @Test
     @DisplayName("Vérifier la création du MouvementStock lors de la validation d'un bon de sortie")
     public void testCreationMouvementStockOnValidation() {
-        when(bonSortieRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(lotStockRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(mouvementStockRepository.save(any()))
-                .thenAnswer(inv -> inv.getArgument(0));
 
         LotStock lotStock = LotStock.builder()
                 .id(1L)
