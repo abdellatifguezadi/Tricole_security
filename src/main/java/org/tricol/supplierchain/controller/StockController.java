@@ -2,11 +2,13 @@ package org.tricol.supplierchain.controller;
 
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import org.tricol.supplierchain.enums.TypeMouvement;
 import org.tricol.supplierchain.dto.response.AlerteStockResponseDTO;
 import org.tricol.supplierchain.dto.response.MouvementStockResponseDTO;
 import org.tricol.supplierchain.dto.response.StockGlobalResponseDTO;
@@ -14,6 +16,7 @@ import org.tricol.supplierchain.dto.response.StockProduitResponseDTO;
 import org.tricol.supplierchain.service.inter.GestionStockService;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -39,6 +42,22 @@ public class StockController {
     @GetMapping("/mouvements")
     public ResponseEntity<List<MouvementStockResponseDTO>> getMouvementsHistorique(){
         return ResponseEntity.ok(stockService.getHistoriqueMouvements());
+    }
+
+    @GetMapping("/mouvements/filter")
+    public ResponseEntity<?> getMouvementsHistoriqueWithFilter(
+            @RequestParam(required = false) Long produitId,
+            @RequestParam(required = false) String reference,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String numeroLot,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateDebut,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateFin,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ){
+        TypeMouvement typeMouvement = type != null ? TypeMouvement.valueOf(type) : null;
+        Pageable pageable = PageRequest.of(page, size, Sort.by("dateMouvement").descending());
+        return ResponseEntity.ok(stockService.searchMouvements(produitId, reference, typeMouvement, numeroLot, dateDebut, dateFin, pageable));
     }
 
     @GetMapping("/mouvements/produit/{id}")
