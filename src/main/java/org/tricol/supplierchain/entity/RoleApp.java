@@ -2,6 +2,7 @@ package org.tricol.supplierchain.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.tricol.supplierchain.enums.RoleName;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -19,8 +20,9 @@ public class RoleApp {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, unique = true)
-    private String name;
+    private RoleName name;
 
     private String description;
 
