@@ -38,4 +38,11 @@ public class UserManagementController {
         userManagementService.togglePermissionStatus(userId, permissionId, active);
         return ResponseEntity.ok("Permission status updated successfully");
     }
+
+    @PostMapping("/{userId}/role/{roleId}")
+    @PreAuthorize("hasAuthority('USER_MANAGE')")
+    public ResponseEntity<String> assignRole(@PathVariable Long userId, @PathVariable Long roleId) {
+        userManagementService.assignRoleToUser(userId, roleId);
+        return ResponseEntity.ok("Role assigned successfully");
+    }
 }

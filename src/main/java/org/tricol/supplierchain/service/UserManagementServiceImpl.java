@@ -7,11 +7,13 @@ import org.tricol.supplierchain.dto.request.UserPermissionRequest;
 import org.tricol.supplierchain.entity.Permission;
 import org.tricol.supplierchain.entity.UserApp;
 import org.tricol.supplierchain.dto.response.UserPermissionResponse;
+import org.tricol.supplierchain.entity.RoleApp;
 import org.tricol.supplierchain.entity.UserPermission;
 import org.tricol.supplierchain.exception.DuplicateResourceException;
 import org.tricol.supplierchain.exception.ResourceNotFoundException;
 import org.tricol.supplierchain.mapper.UserPermissionMapper;
 import org.tricol.supplierchain.repository.PermissionRepository;
+import org.tricol.supplierchain.repository.RoleRepository;
 import org.tricol.supplierchain.repository.UserPermissionRepository;
 import org.tricol.supplierchain.repository.UserRepository;
 import org.tricol.supplierchain.service.inter.UserManagementService;
@@ -26,6 +28,7 @@ public class UserManagementServiceImpl implements UserManagementService {
     private final PermissionRepository permissionRepository;
     private final UserPermissionRepository userPermissionRepository;
     private final UserPermissionMapper userPermissionMapper;
+    private final RoleRepository roleRepository;
 
     @Override
     @Transactional
@@ -73,5 +76,22 @@ public class UserManagementServiceImpl implements UserManagementService {
             userPermission.setRevokedAt(null);
         }
         userPermissionRepository.save(userPermission);
+    }
+
+    @Override
+    @Transactional
+    public void assignRoleToUser(Long userId, Long roleId) {
+        UserApp user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (user.getRole() != null) {
+            throw new DuplicateResourceException("User already has a role");
+        }
+
+        RoleApp role = roleRepository.findById(roleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Role not found"));
+
+        user.setRole(role);
+        userRepository.save(user);
     }
 }
