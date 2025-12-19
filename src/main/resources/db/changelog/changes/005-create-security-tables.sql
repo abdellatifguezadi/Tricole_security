@@ -68,7 +68,6 @@ CREATE TABLE audit_logs (
     resource VARCHAR(100) NOT NULL,
     resource_id VARCHAR(100),
     details TEXT,
-    ip_address VARCHAR(45),
     created_at TIMESTAMP NOT NULL
 );
 

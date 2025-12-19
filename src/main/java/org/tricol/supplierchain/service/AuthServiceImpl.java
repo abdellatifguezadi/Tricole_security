@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ import org.tricol.supplierchain.repository.RoleRepository;
 import org.tricol.supplierchain.repository.UserRepository;
 import org.tricol.supplierchain.security.JwtService;
 import org.tricol.supplierchain.security.CustomUserDetailsService;
+import org.tricol.supplierchain.service.inter.AuditService;
 import org.tricol.supplierchain.service.inter.AuthService;
 
 @Service
@@ -33,6 +35,7 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final UserMapper userMapper;
     private final CustomUserDetailsService userDetailsService;
+    private final AuditService auditService;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -58,6 +61,9 @@ public class AuthServiceImpl implements AuthService {
         String accessToken = jwtService.generateToken(userDetails);
         String refreshToken = jwtService.generateRefreshToken(userDetails);
 
+        auditService.logWithUser(user.getId(), user.getUsername(), "REGISTER", "USER",
+                user.getId().toString(), "New user registered");
+
         AuthResponse response = userMapper.toAuthResponse(user);
         response.setAccessToken(accessToken);
         response.setRefreshToken(refreshToken);
@@ -65,29 +71,37 @@ public class AuthServiceImpl implements AuthService {
     }
 
     public AuthResponse login(LoginRequest request) {
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            request.getUsername(),
+                            request.getPassword()
+                    )
+            );
 
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getUsername(),
-                        request.getPassword()
-                )
-        );
+            UserDetails userDetails = (UserDetails) authentication.getPrincipal();
 
-        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+            UserApp user = userRepository.findByUsername(userDetails.getUsername())
+                    .orElseThrow();
 
-        UserApp user = userRepository.findByUsername(userDetails.getUsername())
-                .orElseThrow();
+            if (user.getRole() == null) {
+                auditService.logAuthentication(request.getUsername(), "NOT_HAVE_ROLE", false);
+                throw new OperationNotAllowedException("User does not have an assigned role");
+            }
 
-        if (user.getRole() == null) {
-            throw new OperationNotAllowedException("User does not have an assigned role");
+            String accessToken = jwtService.generateToken(userDetails);
+            String refreshToken = jwtService.generateRefreshToken(userDetails);
+
+            auditService.logAuthentication(user.getUsername(), "LOGIN_SUCCESS", true);
+
+            AuthResponse response = userMapper.toAuthResponse(user);
+            response.setAccessToken(accessToken);
+            response.setRefreshToken(refreshToken);
+            return response;
+
+        } catch (AuthenticationException e) {
+            auditService.logAuthentication(request.getUsername(), "LOGIN_FAILURE", false);
+            throw e;
         }
-
-        String accessToken = jwtService.generateToken(userDetails);
-        String refreshToken = jwtService.generateRefreshToken(userDetails);
-
-        AuthResponse response = userMapper.toAuthResponse(user);
-        response.setAccessToken(accessToken);
-        response.setRefreshToken(refreshToken);
-        return response;
     }
 }

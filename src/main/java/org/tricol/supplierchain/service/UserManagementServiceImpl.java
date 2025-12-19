@@ -1,6 +1,8 @@
 package org.tricol.supplierchain.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.tricol.supplierchain.dto.request.UserPermissionRequest;
@@ -17,6 +19,8 @@ import org.tricol.supplierchain.repository.PermissionRepository;
 import org.tricol.supplierchain.repository.RoleRepository;
 import org.tricol.supplierchain.repository.UserPermissionRepository;
 import org.tricol.supplierchain.repository.UserRepository;
+import org.tricol.supplierchain.security.CustomUserDetails;
+import org.tricol.supplierchain.service.inter.AuditService;
 import org.tricol.supplierchain.service.inter.UserManagementService;
 
 import java.time.LocalDateTime;
@@ -30,6 +34,7 @@ public class UserManagementServiceImpl implements UserManagementService {
     private final UserPermissionRepository userPermissionRepository;
     private final UserPermissionMapper userPermissionMapper;
     private final RoleRepository roleRepository;
+    private final AuditService auditService;
 
     @Override
     @Transactional
@@ -52,6 +57,10 @@ public class UserManagementServiceImpl implements UserManagementService {
                 .build();
 
         userPermission = userPermissionRepository.save(userPermission);
+
+        auditService.logPermissionChange(user.getId(), user.getUsername(),
+                permission.getName().name(), true, adminId);
+
         return userPermissionMapper.toResponse(userPermission);
     }
 
@@ -61,7 +70,14 @@ public class UserManagementServiceImpl implements UserManagementService {
         UserPermission userPermission = userPermissionRepository.findByUserIdAndPermissionId(userId, permissionId)
                 .orElseThrow(() -> new ResourceNotFoundException("User permission not found"));
 
+        Long adminId = getCurrentUserId();
+        UserApp user = userPermission.getUser();
+        Permission permission = userPermission.getPermission();
+
         userPermissionRepository.delete(userPermission);
+
+        auditService.logPermissionChange(user.getId(), user.getUsername(),
+                permission.getName().name(), false, adminId);
     }
 
     @Override
@@ -86,6 +102,10 @@ public class UserManagementServiceImpl implements UserManagementService {
         userPermission.setActive(true);
         userPermission.setRevokedAt(null);
         userPermissionRepository.save(userPermission);
+
+        Long adminId = getCurrentUserId();
+        auditService.logPermissionChange(user.getId(), user.getUsername(),
+                permission.getName().name(), true, adminId);
     }
 
     @Override
@@ -110,6 +130,10 @@ public class UserManagementServiceImpl implements UserManagementService {
         userPermission.setActive(false);
         userPermission.setRevokedAt(LocalDateTime.now());
         userPermissionRepository.save(userPermission);
+
+        Long adminId = getCurrentUserId();
+        auditService.logPermissionChange(user.getId(), user.getUsername(),
+                permission.getName().name(), false, adminId);
     }
 
     @Override
@@ -127,5 +151,16 @@ public class UserManagementServiceImpl implements UserManagementService {
 
         user.setRole(role);
         userRepository.save(user);
+
+        auditService.log("ROLE_ASSIGNED", "USER", userId.toString(),
+                String.format("Role '%s' assigned to user '%s'", role.getName(), user.getUsername()));
+    }
+
+    private Long getCurrentUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof CustomUserDetails userDetails) {
+            return userDetails.getUser().getId();
+        }
+        return null;
     }
 }

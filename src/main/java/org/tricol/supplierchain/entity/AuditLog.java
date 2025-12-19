@@ -36,9 +36,6 @@ public class AuditLog {
     @Column(columnDefinition = "TEXT")
     private String details;
 
-    @Column(name = "ip_address")
-    private String ipAddress;
-
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
