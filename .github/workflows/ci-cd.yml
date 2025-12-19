@@ -3,7 +3,7 @@ name: tricol springboot ci
 on:
   push:
     branches:
-      - spring-security
+      - main
 
 jobs:
   build-and-push:
