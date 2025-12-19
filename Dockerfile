@@ -10,19 +10,14 @@ RUN mvn dependency:go-offline -B
 COPY src ./src
 RUN mvn clean package -DskipTests
 
-# Stage 2: Runtime
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
-# Create a non-root user
 RUN addgroup -S spring && adduser -S spring -G spring
 USER spring:spring
 
-# Copy the jar from build stage
 COPY --from=build /app/target/*.jar app.jar
 
-# Expose port
 EXPOSE 8080
 
-# Run the application
 ENTRYPOINT ["java", "-jar", "app.jar"]
