@@ -41,6 +41,10 @@ public class JwtService {
         return buildToken(userDetails, refreshExpiration);
     }
 
+    public long getRefreshTokenExpirationInSeconds() {
+        return refreshExpiration / 1000;
+    }
+
     private String buildToken(UserDetails userDetails, long expiration) {
         return Jwts.builder()
                 .subject(userDetails.getUsername())

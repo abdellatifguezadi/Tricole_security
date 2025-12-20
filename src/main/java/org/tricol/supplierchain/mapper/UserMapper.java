@@ -20,7 +20,6 @@ public interface UserMapper {
     UserApp toEntity(RegisterRequest request);
 
     @Mapping(target = "accessToken", ignore = true)
-    @Mapping(target = "refreshToken", ignore = true)
     @Mapping(target = "tokenType", constant = "Bearer")
     @Mapping(target = "userId", source = "id")
     @Mapping(target = "role", expression = "java(user.getRole() != null ? user.getRole().getName().name() : null)")

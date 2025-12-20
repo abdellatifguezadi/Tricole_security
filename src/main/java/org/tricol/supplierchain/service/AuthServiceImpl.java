@@ -1,6 +1,8 @@
 package org.tricol.supplierchain.service;
 
 import lombok.RequiredArgsConstructor;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.Cookie;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -23,6 +25,7 @@ import org.tricol.supplierchain.security.JwtService;
 import org.tricol.supplierchain.security.CustomUserDetailsService;
 import org.tricol.supplierchain.service.inter.AuditService;
 import org.tricol.supplierchain.service.inter.AuthService;
+
 
 @Service
 @RequiredArgsConstructor
@@ -56,14 +59,21 @@ public class AuthServiceImpl implements AuthService {
 
         user = userRepository.save(user);
 
-        auditService.logWithUser(user.getId(), user.getUsername(), "REGISTER", "USER",
-                user.getId().toString(), "New user registered");
+        auditService.logWithUser(
+                user.getId(),
+                user.getUsername(),
+                "REGISTER",
+                "USER",
+                user.getId().toString(),
+                "New user registered"
+        );
 
-        AuthResponse response = userMapper.toAuthResponse(user);
-        return response;
+        return userMapper.toAuthResponse(user);
     }
 
-    public AuthResponse login(LoginRequest request) {
+    @Override
+    public AuthResponse login(LoginRequest request, HttpServletResponse response) {
+
         try {
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
@@ -85,12 +95,20 @@ public class AuthServiceImpl implements AuthService {
             String accessToken = jwtService.generateToken(userDetails);
             String refreshToken = jwtService.generateRefreshToken(userDetails);
 
+            Cookie cookie = new Cookie("refreshToken", refreshToken);
+            cookie.setHttpOnly(true);
+            cookie.setSecure(false);
+            cookie.setPath("/api/auth/refresh");
+            cookie.setMaxAge((int) jwtService.getRefreshTokenExpirationInSeconds());
+
+            response.addCookie(cookie);
+
             auditService.logAuthentication(user.getUsername(), "LOGIN_SUCCESS", true);
 
-            AuthResponse response = userMapper.toAuthResponse(user);
-            response.setAccessToken(accessToken);
-            response.setRefreshToken(refreshToken);
-            return response;
+            AuthResponse authResponse = userMapper.toAuthResponse(user);
+            authResponse.setAccessToken(accessToken);
+
+            return authResponse;
 
         } catch (AuthenticationException e) {
             auditService.logAuthentication(request.getUsername(), "LOGIN_FAILURE", false);

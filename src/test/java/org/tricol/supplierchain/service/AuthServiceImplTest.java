@@ -1,5 +1,7 @@
 package org.tricol.supplierchain.service;
 
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -65,6 +67,9 @@ class AuthServiceImplTest {
 
     @Mock
     private AuditService auditService;
+
+    @Mock
+    private HttpServletResponse httpServletResponse;
 
     @InjectMocks
     private AuthServiceImpl authService;
@@ -142,7 +147,7 @@ class AuthServiceImplTest {
     @Test
     @DisplayName("Register - Devrait assigner le rôle ADMIN au premier utilisateur")
     void register_ShouldAssignAdminRole_WhenFirstUser() {
-        
+
         when(userRepository.existsByUsername(registerRequest.getUsername())).thenReturn(false);
         when(userRepository.existsByEmail(registerRequest.getEmail())).thenReturn(false);
         when(userRepository.count()).thenReturn(0L); // Premier utilisateur
@@ -219,23 +224,22 @@ class AuthServiceImplTest {
                 .email("test@example.com")
                 .role("MAGASINIER")
                 .accessToken("accessToken")
-                .refreshToken("refreshToken")
                 .tokenType("Bearer")
                 .build();
 
         when(userMapper.toAuthResponse(userApp)).thenReturn(expectedResponse);
 
-        AuthResponse response = authService.login(loginRequest);
+        AuthResponse response = authService.login(loginRequest, httpServletResponse);
 
         assertThat(response).isNotNull();
         assertThat(response.getUsername()).isEqualTo("testuser");
         assertThat(response.getAccessToken()).isEqualTo("accessToken");
-        assertThat(response.getRefreshToken()).isEqualTo("refreshToken");
 
         verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
         verify(userRepository).findByUsername("testuser");
         verify(jwtService).generateToken(userDetails);
         verify(jwtService).generateRefreshToken(userDetails);
+        verify(httpServletResponse).addCookie(any(Cookie.class));
         verify(auditService).logAuthentication("testuser", "LOGIN_SUCCESS", true);
     }
 
@@ -246,7 +250,7 @@ class AuthServiceImplTest {
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .thenThrow(new BadCredentialsException("Bad credentials"));
 
-        assertThatThrownBy(() -> authService.login(loginRequest))
+        assertThatThrownBy(() -> authService.login(loginRequest, httpServletResponse))
                 .isInstanceOf(BadCredentialsException.class);
 
         verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
@@ -265,7 +269,7 @@ class AuthServiceImplTest {
                 .thenReturn(authentication);
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(userApp));
 
-        assertThatThrownBy(() -> authService.login(loginRequest))
+        assertThatThrownBy(() -> authService.login(loginRequest, httpServletResponse))
                 .isInstanceOf(OperationNotAllowedException.class)
                 .hasMessage("User does not have an assigned role");
 
@@ -275,5 +279,3 @@ class AuthServiceImplTest {
         verify(jwtService, never()).generateToken(any());
     }
 }
-
-
