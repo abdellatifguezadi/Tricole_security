@@ -56,17 +56,10 @@ public class AuthServiceImpl implements AuthService {
 
         user = userRepository.save(user);
 
-        UserDetails userDetails = userDetailsService.loadUserByUsername(user.getUsername());
-
-        String accessToken = jwtService.generateToken(userDetails);
-        String refreshToken = jwtService.generateRefreshToken(userDetails);
-
         auditService.logWithUser(user.getId(), user.getUsername(), "REGISTER", "USER",
                 user.getId().toString(), "New user registered");
 
         AuthResponse response = userMapper.toAuthResponse(user);
-        response.setAccessToken(accessToken);
-        response.setRefreshToken(refreshToken);
         return response;
     }
 
