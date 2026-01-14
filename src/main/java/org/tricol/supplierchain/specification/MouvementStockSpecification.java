@@ -1,6 +1,7 @@
 package org.tricol.supplierchain.specification;
 
 import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
 import org.springframework.data.jpa.domain.Specification;
 import org.tricol.supplierchain.entity.LotStock;
 import org.tricol.supplierchain.entity.MouvementStock;
@@ -34,11 +35,24 @@ public class MouvementStockSpecification {
     }
 
 
-    public static Specification<MouvementStock> hasProduitReference(String reference) {
+//    public static Specification<MouvementStock> hasProduitReference(String Produitreference) {
+//        return (root, query, cb) -> {
+//            if (Produitreference == null || Produitreference.isEmpty()) return null;
+//            Join<MouvementStock, Produit> produitJoin = root.join("produit");
+//            return cb.equal(produitJoin.get("reference"),Produitreference );
+//        };
+//    }
+
+
+    public static Specification<MouvementStock> hasReference(String reference) {
         return (root, query, cb) -> {
             if (reference == null || reference.isEmpty()) return null;
-            Join<MouvementStock, Produit> produitJoin = root.join("produit");
-            return cb.equal(produitJoin.get("reference"), reference);
+            String pattern = "%" + reference.toLowerCase() + "%";
+            Join<MouvementStock, Produit> produitJoin = root.join("produit", JoinType.LEFT);
+            return cb.or(
+                    cb.like(cb.lower(root.get("reference")), pattern),
+                    cb.like(cb.lower(produitJoin.get("reference")), pattern)
+            );
         };
     }
 

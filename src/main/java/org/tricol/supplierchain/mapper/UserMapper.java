@@ -23,5 +23,6 @@ public interface UserMapper {
     @Mapping(target = "tokenType", constant = "Bearer")
     @Mapping(target = "userId", source = "id")
     @Mapping(target = "role", expression = "java(user.getRole() != null ? user.getRole().getName().name() : null)")
+    @Mapping(target = "authorities", ignore = true)
     AuthResponse toAuthResponse(UserApp user);
 }

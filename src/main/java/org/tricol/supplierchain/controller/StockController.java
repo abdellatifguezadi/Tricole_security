@@ -58,7 +58,7 @@ public class StockController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateDebut,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateFin,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
+            @RequestParam(defaultValue = "5") int size
     ){
         TypeMouvement typeMouvement = type != null ? TypeMouvement.valueOf(type) : null;
         Pageable pageable = PageRequest.of(page, size, Sort.by("dateMouvement").descending());

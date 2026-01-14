@@ -16,6 +16,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfigurationSource;
 import org.tricol.supplierchain.security.AccessDeniedHandlerImpl;
 import org.tricol.supplierchain.security.AuthenticationEntryPointImpl;
 import org.tricol.supplierchain.security.CustomUserDetailsService;
@@ -31,11 +32,13 @@ public class SecurityConfig {
     private final CustomUserDetailsService userDetailsService;
     private final AuthenticationEntryPointImpl authenticationEntryPoint;
     private final AccessDeniedHandlerImpl accessDeniedHandler;
+    private final CorsConfigurationSource corsConfigurationSource;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/auth/**",

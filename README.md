@@ -90,6 +90,9 @@ java -jar target/supplierchain-0.0.1-SNAPSHOT.jar
 - `POST /api/auth/login` - Connexion
 - `POST /api/auth/refresh` - Refresh token
 
+### Statistiques
+- `GET /api/statistiques/dashboard` - Statistiques complètes du système (utilisateurs, produits, commandes, stock, finances, alertes)
+
 ### Roles
 - ADMIN
 - RESPONSABLE_ACHATS

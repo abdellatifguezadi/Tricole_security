@@ -27,6 +27,10 @@ public enum PermissionName {
     BON_SORTIE_VALIDATE,
     BON_SORTIE_CANCEL,
     BON_SORTIE_READ,
+    BON_SORTIE_UPDATE,
+    BON_SORTIE_DELETE,
+    
+    STATISTIQUES_READ,
     
     USER_MANAGE,
     AUDIT_READ

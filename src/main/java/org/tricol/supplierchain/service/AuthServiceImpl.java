@@ -39,6 +39,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserMapper userMapper;
     private final CustomUserDetailsService userDetailsService;
     private final AuditService auditService;
+    private final org.tricol.supplierchain.security.AuthorityService authorityService;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -98,7 +99,7 @@ public class AuthServiceImpl implements AuthService {
             Cookie cookie = new Cookie("refreshToken", refreshToken);
             cookie.setHttpOnly(true);
             cookie.setSecure(false);
-            cookie.setPath("/api/auth/refresh");
+            cookie.setPath("/");
             cookie.setMaxAge((int) jwtService.getRefreshTokenExpirationInSeconds());
 
             response.addCookie(cookie);
@@ -107,6 +108,11 @@ public class AuthServiceImpl implements AuthService {
 
             AuthResponse authResponse = userMapper.toAuthResponse(user);
             authResponse.setAccessToken(accessToken);
+            authResponse.setAuthorities(
+                authorityService.buildAuthorities(user).stream()
+                    .map(auth -> auth.getAuthority())
+                    .toList()
+            );
 
             return authResponse;
 

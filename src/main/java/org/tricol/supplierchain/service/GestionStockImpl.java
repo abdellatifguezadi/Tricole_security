@@ -126,8 +126,8 @@ public class GestionStockImpl implements GestionStockService {
                     : specification.and(MouvementStockSpecification.hasProduitId(produitId));
         }
         if (reference != null && !reference.isEmpty()) {
-            specification = specification == null ? MouvementStockSpecification.hasProduitReference(reference)
-                    : specification.and(MouvementStockSpecification.hasProduitReference(reference));
+            specification = specification == null ? MouvementStockSpecification.hasReference(reference)
+                    : specification.and(MouvementStockSpecification.hasReference(reference));
         }
         if (type != null) {
             specification = specification == null ? MouvementStockSpecification.hasTypeMouvement(type)

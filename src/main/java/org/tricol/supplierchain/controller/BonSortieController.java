@@ -22,7 +22,7 @@ public class BonSortieController {
     private final BonSortieService bonSortieService;
 
     @PostMapping()
-    @PreAuthorize("hasAuthority('BONSORTIE_CREATE')")
+    @PreAuthorize("hasAuthority('BON_SORTIE_CREATE')")
     public ResponseEntity<BonSortieResponseDTO> createBonSortie(@RequestBody @Valid BonSortieRequestDTO bonSortieRequestDTO) {
 
         BonSortieResponseDTO responseDTO = bonSortieService.createBonSortie(bonSortieRequestDTO);
@@ -32,21 +32,21 @@ public class BonSortieController {
 
 
     @GetMapping()
-    @PreAuthorize("hasAuthority('BONSORTIE_READ')")
+    @PreAuthorize("hasAuthority('BON_SORTIE_READ')")
     public ResponseEntity<List<BonSortieResponseDTO>> getBonSorties() {
         List<BonSortieResponseDTO> bonSorties = bonSortieService.getBonSorties();
         return ResponseEntity.ok(bonSorties);
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('BONSORTIE_READ')")
+    @PreAuthorize("hasAuthority('BON_SORTIE_READ')")
     public ResponseEntity<BonSortieResponseDTO> getBonSortieById(@PathVariable Long id) {
         BonSortieResponseDTO bonSortie = bonSortieService.getBonSortieById(id);
         return ResponseEntity.ok(bonSortie);
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('BONSORTIE_DELETE')")
+    @PreAuthorize("hasAuthority('BON_SORTIE_DELETE')")
     public ResponseEntity<String> deleteBonSortie(@PathVariable Long id) {
         bonSortieService.deleteBonSortie(id);
         return ResponseEntity.ok("Bon de sortie avec id " +id +" est supprimé" );
@@ -60,7 +60,7 @@ public class BonSortieController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('BONSORTIE_UPDATE')")
+    @PreAuthorize("hasAuthority('BON_SORTIE_UPDATE')")
     public ResponseEntity<BonSortieResponseDTO> updateBonSortie(@PathVariable Long id, @Valid @RequestBody BonSortieUpdateDTO bonSortieUpdateDTO) {
         BonSortieResponseDTO updatedBonSortie = bonSortieService.updateBonSortie(id, bonSortieUpdateDTO);
         return ResponseEntity.ok(updatedBonSortie);
@@ -68,14 +68,14 @@ public class BonSortieController {
 
 
     @PutMapping("/annulation/{id}")
-    @PreAuthorize("hasAuthority('BONSORTIE_CANCEL')")
+    @PreAuthorize("hasAuthority('BON_SORTIE_CANCEL')")
     public ResponseEntity<String> annulationBonSortie(@PathVariable Long id) {
         bonSortieService.annulationBonSortie(id);
         return ResponseEntity.ok("Bon de sortie avec id " +id +" est annulé" );
     }
 
     @PutMapping("/validation/{id}")
-    @PreAuthorize("hasAuthority('BONSORTIE_VALIDATE')")
+    @PreAuthorize("hasAuthority('BON_SORTIE_VALIDATE')")
     public ResponseEntity<BonSortieResponseDTO> validationBonSortie(@PathVariable Long id) {
             BonSortieResponseDTO validatedBonSortie = bonSortieService.validationBonSortie(id);
             return ResponseEntity.ok(validatedBonSortie);

@@ -197,7 +197,7 @@ public class CommandeFournisseurServiceimpl implements CommandeFournisseurServic
             Produit produit = ligne.getProduit();
 
             LotStock lot = LotStock.builder()
-                    .numeroLot("LOT-"+UUID.randomUUID())
+                    .numeroLot("LOT-" + UUID.randomUUID().toString().substring(0, 8))
                     .produit(produit)
                     .commande(commande)
                     .quantiteInitiale(ligne.getQuantite())
