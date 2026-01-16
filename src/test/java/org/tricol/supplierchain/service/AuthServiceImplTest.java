@@ -13,6 +13,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -28,12 +29,15 @@ import org.tricol.supplierchain.exception.OperationNotAllowedException;
 import org.tricol.supplierchain.mapper.UserMapper;
 import org.tricol.supplierchain.repository.RoleRepository;
 import org.tricol.supplierchain.repository.UserRepository;
+import org.tricol.supplierchain.security.AuthorityService;
 import org.tricol.supplierchain.security.CustomUserDetailsService;
 import org.tricol.supplierchain.security.JwtService;
 import org.tricol.supplierchain.service.inter.AuditService;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -67,6 +71,9 @@ class AuthServiceImplTest {
 
     @Mock
     private AuditService auditService;
+
+    @Mock
+    private AuthorityService authorityService;
 
     @Mock
     private HttpServletResponse httpServletResponse;
@@ -120,6 +127,14 @@ class AuthServiceImplTest {
         when(passwordEncoder.encode(registerRequest.getPassword())).thenReturn("encodedPassword");
         when(userMapper.toEntity(registerRequest)).thenReturn(userApp);
         when(userRepository.save(any(UserApp.class))).thenReturn(userApp);
+        when(userDetailsService.loadUserByUsername("testuser")).thenReturn(userDetails);
+        when(jwtService.generateToken(userDetails)).thenReturn("accessToken");
+        when(jwtService.generateRefreshToken(userDetails)).thenReturn("refreshToken");
+        when(jwtService.getRefreshTokenExpirationInSeconds()).thenReturn(604800L);
+
+        Set<GrantedAuthority> authorities = new HashSet<>();
+        authorities.add(new SimpleGrantedAuthority("ROLE_MAGASINIER"));
+        doReturn(authorities).when(authorityService).buildAuthorities(any(UserApp.class));
 
         AuthResponse expectedResponse = AuthResponse.builder()
                 .userId(1L)
@@ -130,7 +145,7 @@ class AuthServiceImplTest {
 
         when(userMapper.toAuthResponse(userApp)).thenReturn(expectedResponse);
 
-        AuthResponse response = authService.register(registerRequest);
+        AuthResponse response = authService.register(registerRequest, httpServletResponse);
 
         assertThat(response).isNotNull();
         assertThat(response.getUsername()).isEqualTo("testuser");
@@ -140,6 +155,7 @@ class AuthServiceImplTest {
         verify(userRepository).existsByEmail(registerRequest.getEmail());
         verify(passwordEncoder).encode(registerRequest.getPassword());
         verify(userRepository).save(any(UserApp.class));
+        verify(httpServletResponse, times(2)).addCookie(any(Cookie.class));
         verify(auditService).logWithUser(eq(1L), eq("testuser"), eq("REGISTER"), eq("USER"),
                 eq("1"), eq("New user registered"));
     }
@@ -160,6 +176,14 @@ class AuthServiceImplTest {
         when(roleRepository.findByName(RoleName.ADMIN)).thenReturn(Optional.of(adminRole));
 
         when(userRepository.save(any(UserApp.class))).thenReturn(userApp);
+        when(userDetailsService.loadUserByUsername("testuser")).thenReturn(userDetails);
+        when(jwtService.generateToken(userDetails)).thenReturn("accessToken");
+        when(jwtService.generateRefreshToken(userDetails)).thenReturn("refreshToken");
+        when(jwtService.getRefreshTokenExpirationInSeconds()).thenReturn(604800L);
+
+        Set<GrantedAuthority> authorities = new HashSet<>();
+        authorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
+        doReturn(authorities).when(authorityService).buildAuthorities(any(UserApp.class));
 
         AuthResponse expectedResponse = AuthResponse.builder()
                 .userId(1L)
@@ -170,7 +194,7 @@ class AuthServiceImplTest {
 
         when(userMapper.toAuthResponse(any(UserApp.class))).thenReturn(expectedResponse);
 
-        AuthResponse response = authService.register(registerRequest);
+        AuthResponse response = authService.register(registerRequest, httpServletResponse);
 
         assertThat(response).isNotNull();
         assertThat(response.getRole()).isEqualTo("ADMIN");
@@ -183,7 +207,7 @@ class AuthServiceImplTest {
     void register_ShouldThrowException_WhenUsernameExists() {
         when(userRepository.existsByUsername(registerRequest.getUsername())).thenReturn(true);
 
-        assertThatThrownBy(() -> authService.register(registerRequest))
+        assertThatThrownBy(() -> authService.register(registerRequest, httpServletResponse))
                 .isInstanceOf(DuplicateResourceException.class)
                 .hasMessage("Username already exists");
 
@@ -197,7 +221,7 @@ class AuthServiceImplTest {
         when(userRepository.existsByUsername(registerRequest.getUsername())).thenReturn(false);
         when(userRepository.existsByEmail(registerRequest.getEmail())).thenReturn(true);
 
-        assertThatThrownBy(() -> authService.register(registerRequest))
+        assertThatThrownBy(() -> authService.register(registerRequest, httpServletResponse))
                 .isInstanceOf(DuplicateResourceException.class)
                 .hasMessage("Email already exists");
 
@@ -217,14 +241,17 @@ class AuthServiceImplTest {
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(userApp));
         when(jwtService.generateToken(userDetails)).thenReturn("accessToken");
         when(jwtService.generateRefreshToken(userDetails)).thenReturn("refreshToken");
+        when(jwtService.getRefreshTokenExpirationInSeconds()).thenReturn(604800L);
+
+        Set<GrantedAuthority> authorities = new HashSet<>();
+        authorities.add(new SimpleGrantedAuthority("ROLE_MAGASINIER"));
+        doReturn(authorities).when(authorityService).buildAuthorities(any(UserApp.class));
 
         AuthResponse expectedResponse = AuthResponse.builder()
                 .userId(1L)
                 .username("testuser")
                 .email("test@example.com")
                 .role("MAGASINIER")
-                .accessToken("accessToken")
-                .tokenType("Bearer")
                 .build();
 
         when(userMapper.toAuthResponse(userApp)).thenReturn(expectedResponse);
@@ -233,13 +260,12 @@ class AuthServiceImplTest {
 
         assertThat(response).isNotNull();
         assertThat(response.getUsername()).isEqualTo("testuser");
-        assertThat(response.getAccessToken()).isEqualTo("accessToken");
 
         verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
         verify(userRepository).findByUsername("testuser");
         verify(jwtService).generateToken(userDetails);
         verify(jwtService).generateRefreshToken(userDetails);
-        verify(httpServletResponse).addCookie(any(Cookie.class));
+        verify(httpServletResponse, times(2)).addCookie(any(Cookie.class));
         verify(auditService).logAuthentication("testuser", "LOGIN_SUCCESS", true);
     }
 

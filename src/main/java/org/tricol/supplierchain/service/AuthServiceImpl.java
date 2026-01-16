@@ -18,6 +18,7 @@ import org.tricol.supplierchain.entity.UserApp;
 import org.tricol.supplierchain.enums.RoleName;
 import org.tricol.supplierchain.exception.DuplicateResourceException;
 import org.tricol.supplierchain.exception.OperationNotAllowedException;
+import org.tricol.supplierchain.exception.ResourceNotFoundException;
 import org.tricol.supplierchain.mapper.UserMapper;
 import org.tricol.supplierchain.repository.RoleRepository;
 import org.tricol.supplierchain.repository.UserRepository;
@@ -42,7 +43,8 @@ public class AuthServiceImpl implements AuthService {
     private final org.tricol.supplierchain.security.AuthorityService authorityService;
 
     @Transactional
-    public AuthResponse register(RegisterRequest request) {
+    @Override
+    public AuthResponse register(RegisterRequest request, HttpServletResponse response) {
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new DuplicateResourceException("Username already exists");
         }
@@ -69,7 +71,22 @@ public class AuthServiceImpl implements AuthService {
                 "New user registered"
         );
 
-        return userMapper.toAuthResponse(user);
+        // Generate token and add to cookie
+        UserDetails userDetails = userDetailsService.loadUserByUsername(user.getUsername());
+        String accessToken = jwtService.generateToken(userDetails);
+        String refreshToken = jwtService.generateRefreshToken(userDetails);
+
+        addJwtCookie(response, accessToken);
+        addRefreshTokenCookie(response, refreshToken);
+
+        AuthResponse authResponse = userMapper.toAuthResponse(user);
+        authResponse.setAuthorities(
+            authorityService.buildAuthorities(user).stream()
+                .map(auth -> auth.getAuthority())
+                .toList()
+        );
+
+        return authResponse;
     }
 
     @Override
@@ -96,18 +113,12 @@ public class AuthServiceImpl implements AuthService {
             String accessToken = jwtService.generateToken(userDetails);
             String refreshToken = jwtService.generateRefreshToken(userDetails);
 
-            Cookie cookie = new Cookie("refreshToken", refreshToken);
-            cookie.setHttpOnly(true);
-            cookie.setSecure(false);
-            cookie.setPath("/");
-            cookie.setMaxAge((int) jwtService.getRefreshTokenExpirationInSeconds());
-
-            response.addCookie(cookie);
+            addJwtCookie(response, accessToken);
+            addRefreshTokenCookie(response, refreshToken);
 
             auditService.logAuthentication(user.getUsername(), "LOGIN_SUCCESS", true);
 
             AuthResponse authResponse = userMapper.toAuthResponse(user);
-            authResponse.setAccessToken(accessToken);
             authResponse.setAuthorities(
                 authorityService.buildAuthorities(user).stream()
                     .map(auth -> auth.getAuthority())
@@ -120,5 +131,38 @@ public class AuthServiceImpl implements AuthService {
             auditService.logAuthentication(request.getUsername(), "LOGIN_FAILURE", false);
             throw e;
         }
+    }
+
+    @Override
+    public AuthResponse getCurrentUser(String username) {
+        UserApp user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        AuthResponse authResponse = userMapper.toAuthResponse(user);
+        authResponse.setAuthorities(
+            authorityService.buildAuthorities(user).stream()
+                .map(auth -> auth.getAuthority())
+                .toList()
+        );
+
+        return authResponse;
+    }
+
+    private void addJwtCookie(HttpServletResponse response, String token) {
+        Cookie cookie = new Cookie("accessToken", token);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(false); // Set to true in production with HTTPS
+        cookie.setPath("/");
+        cookie.setMaxAge(24 * 60 * 60); // 1 day
+        response.addCookie(cookie);
+    }
+
+    private void addRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
+        Cookie cookie = new Cookie("refreshToken", refreshToken);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(false); // Set to true in production with HTTPS
+        cookie.setPath("/");
+        cookie.setMaxAge((int) jwtService.getRefreshTokenExpirationInSeconds());
+        response.addCookie(cookie);
     }
 }
