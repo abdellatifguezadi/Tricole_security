@@ -1,6 +1,8 @@
 package org.tricol.supplierchain.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.tricol.supplierchain.dto.request.BonSortieRequestDTO;
@@ -186,7 +188,10 @@ public class BonSortieServiceImpl implements BonSortieService {
 
         for(LigneBonSortie ligne :  bonSortie.getLigneBonSorties()) {
 
-            List<LotStock> lotStocks = lotStockRepository.findByProduitIdOrderByDateEntreeAsc(ligne.getProduit().getId());
+            Produit produit = produitRepository.findById(ligne.getProduit().getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Produit non trouvé avec l'id " + ligne.getProduit().getId()));
+
+            List<LotStock> lotStocks = lotStockRepository.findByProduitIdOrderByDateEntreeAsc(produit.getId());
 
             BigDecimal quantiteRestante = ligne.getQuantite();
 
@@ -196,29 +201,30 @@ public class BonSortieServiceImpl implements BonSortieService {
                     .map(LotStock::getQuantiteRestante)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-            if (ligne.getQuantite().compareTo(totalDisponible) > 0) {
-                throw new BusinessException("Stock insuffisant pour le produit : " + ligne.getProduit().getNom());
+            if (totalDisponible.compareTo(BigDecimal.ZERO) <= 0) {
+                BigDecimal stockProduit = produit.getStockActuel() != null ? produit.getStockActuel() : BigDecimal.ZERO;
+                totalDisponible = stockProduit;
             }
 
-            for(LotStock lotStock : lotStocks) {
+            if (ligne.getQuantite().compareTo(totalDisponible) > 0) {
+                throw new BusinessException("Stock insuffisant pour le produit : " + produit.getNom());
+            }
 
-                if (quantiteRestante.compareTo(BigDecimal.ZERO) <= 0) {
-                    break;
+            if (lotStocks.isEmpty()) {
+                BigDecimal quantiteALever = quantiteRestante;
+                BigDecimal prixUnitaire = BigDecimal.ZERO;
+                try {
+                    java.lang.reflect.Method m = Produit.class.getMethod("getPrixUnitaireAchat");
+                    Object v = m.invoke(produit);
+                    if (v instanceof BigDecimal) prixUnitaire = (BigDecimal) v;
+                } catch (Exception ignored) {
                 }
 
-                BigDecimal quantiteDisponible = lotStock.getQuantiteRestante();
-
-                if (quantiteDisponible.compareTo(BigDecimal.ZERO) <= 0) {
-                    continue;
-                }
-
-                BigDecimal quantiteALever = quantiteDisponible.min(quantiteRestante);
-
-                BigDecimal montantMouvement = quantiteALever.multiply(lotStock.getPrixUnitaireAchat());
+                BigDecimal montantMouvement = quantiteALever.multiply(prixUnitaire != null ? prixUnitaire : BigDecimal.ZERO);
 
                 MouvementStock mv = MouvementStock.builder()
-                        .produit(ligne.getProduit())
-                        .lotStock(lotStock)
+                        .produit(produit)
+                        .lotStock(null)
                         .typeMouvement(TypeMouvement.SORTIE)
                         .quantite(quantiteALever)
                         .dateMouvement(LocalDateTime.now())
@@ -227,21 +233,52 @@ public class BonSortieServiceImpl implements BonSortieService {
                         .build();
                 mouvementStockRepository.save(mv);
 
-//                lotStock.setQuantiteRestante(lotStock.getQuantiteRestante().subtract(quantiteALever));
-//                lotStock.setQuantiteRestante(lotStock.getQuantiteRestante().subtract(quantiteALever));
-                lotStock.consommer(quantiteALever);
-                lotStockRepository.save(lotStock);
-
                 quantiteRestante = quantiteRestante.subtract(quantiteALever);
-
                 montantLigne = montantLigne.add(montantMouvement);
-            }
-            if (quantiteRestante.compareTo(BigDecimal.ZERO) > 0) {
-                throw new BusinessException("Stock insuffisant pour le produit : " + ligne.getProduit().getNom());
+            } else {
+                for(LotStock lotStock : lotStocks) {
+
+                    if (quantiteRestante.compareTo(BigDecimal.ZERO) <= 0) {
+                        break;
+                    }
+
+                    BigDecimal quantiteDisponible = lotStock.getQuantiteRestante();
+
+                    if (quantiteDisponible.compareTo(BigDecimal.ZERO) <= 0) {
+                        continue;
+                    }
+
+                    BigDecimal quantiteALever = quantiteDisponible.min(quantiteRestante);
+
+                    BigDecimal prixUnitaireLot = lotStock.getPrixUnitaireAchat() != null ? lotStock.getPrixUnitaireAchat() : BigDecimal.ZERO;
+                    BigDecimal montantMouvement = quantiteALever.multiply(prixUnitaireLot);
+
+                    MouvementStock mv = MouvementStock.builder()
+                            .produit(produit)
+                            .lotStock(lotStock)
+                            .typeMouvement(TypeMouvement.SORTIE)
+                            .quantite(quantiteALever)
+                            .dateMouvement(LocalDateTime.now())
+                            .reference(bonSortie.getNumeroBon())
+                            .motif(bonSortie.getMotif().name())
+                            .build();
+                    mouvementStockRepository.save(mv);
+
+                    lotStock.consommer(quantiteALever);
+                    lotStockRepository.save(lotStock);
+
+                    quantiteRestante = quantiteRestante.subtract(quantiteALever);
+
+                    montantLigne = montantLigne.add(montantMouvement);
+                }
             }
 
-            Produit produit = ligne.getProduit();
-            produit.setStockActuel(produit.getStockActuel().subtract(ligne.getQuantite()));
+            if (quantiteRestante.compareTo(BigDecimal.ZERO) > 0) {
+                throw new BusinessException("Stock insuffisant pour le produit : " + produit.getNom());
+            }
+
+            BigDecimal currentStock = produit.getStockActuel() != null ? produit.getStockActuel() : BigDecimal.ZERO;
+            produit.setStockActuel(currentStock.subtract(ligne.getQuantite()));
             produitRepository.save(produit);
 
             montantTotal = montantTotal.add(montantLigne);

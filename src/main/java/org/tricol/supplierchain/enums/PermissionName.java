@@ -16,6 +16,7 @@ public enum PermissionName {
     COMMANDE_UPDATE,
     COMMANDE_VALIDATE,
     COMMANDE_CANCEL,
+    COMMANDE_DELETE,
     COMMANDE_RECEIVE,
     COMMANDE_READ,
     

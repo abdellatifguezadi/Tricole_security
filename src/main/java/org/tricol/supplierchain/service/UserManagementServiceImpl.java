@@ -6,6 +6,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.tricol.supplierchain.dto.request.UserPermissionRequest;
+import org.tricol.supplierchain.dto.response.UserDisplayResponse;
+import org.tricol.supplierchain.dto.response.PermissionDisplayResponse;
+import org.tricol.supplierchain.dto.response.UserPermissionDisplayResponse;
 import org.tricol.supplierchain.entity.Permission;
 import org.tricol.supplierchain.entity.UserApp;
 import org.tricol.supplierchain.dto.response.UserPermissionResponse;
@@ -15,6 +18,7 @@ import org.tricol.supplierchain.exception.DuplicateResourceException;
 import org.tricol.supplierchain.exception.OperationNotAllowedException;
 import org.tricol.supplierchain.exception.ResourceNotFoundException;
 import org.tricol.supplierchain.mapper.UserPermissionMapper;
+import org.tricol.supplierchain.mapper.UserMapper;
 import org.tricol.supplierchain.repository.PermissionRepository;
 import org.tricol.supplierchain.repository.RoleRepository;
 import org.tricol.supplierchain.repository.UserPermissionRepository;
@@ -24,6 +28,9 @@ import org.tricol.supplierchain.service.inter.AuditService;
 import org.tricol.supplierchain.service.inter.UserManagementService;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +40,7 @@ public class UserManagementServiceImpl implements UserManagementService {
     private final PermissionRepository permissionRepository;
     private final UserPermissionRepository userPermissionRepository;
     private final UserPermissionMapper userPermissionMapper;
+    private final UserMapper userMapper;
     private final RoleRepository roleRepository;
     private final AuditService auditService;
 
@@ -150,17 +158,99 @@ public class UserManagementServiceImpl implements UserManagementService {
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found"));
 
         user.setRole(role);
-        userRepository.save(user);
 
         auditService.log("ROLE_ASSIGNED", "USER", userId.toString(),
                 String.format("Role '%s' assigned to user '%s'", role.getName(), user.getUsername()));
+
+        userRepository.save(user);
     }
+
+    // Display methods implementation
+    @Override
+    public List<UserDisplayResponse> getAllUsers() {
+        return userRepository.findAllWithPermissions()
+                .stream()
+                .map(user -> {
+                    UserDisplayResponse dto = userMapper.toDisplayResponse(user);
+                    dto.setPermissions(mergePermissions(user));
+                    return dto;
+                })
+                .toList();
+    }
+
+    @Override
+    public UserDisplayResponse getUserById(Long userId) {
+        UserApp user = userRepository.findByIdWithPermissions(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        UserDisplayResponse dto = userMapper.toDisplayResponse(user);
+        dto.setPermissions(mergePermissions(user));
+        return dto;
+    }
+
+    @Override
+    public List<PermissionDisplayResponse> getAllPermissions() {
+        return permissionRepository.findAll()
+                .stream()
+                .map(userMapper::toPermissionDisplayResponse)
+                .toList();
+    }
+
+    @Override
+    public UserDisplayResponse getUserWithPermissions(Long userId) {
+        UserApp user = userRepository.findByIdWithPermissions(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        UserDisplayResponse dto = userMapper.toDisplayResponse(user);
+        dto.setPermissions(mergePermissions(user));
+        return dto;
+    }
+
+    @Override
+    public List<UserDisplayResponse> searchUsers(String keyword) {
+        return userRepository.searchByUsernameOrEmailWithPermissions(keyword)
+                .stream()
+                .map(user -> {
+                    UserDisplayResponse dto = userMapper.toDisplayResponse(user);
+                    dto.setPermissions(mergePermissions(user));
+                    return dto;
+                })
+                .toList();
+    }
+
+    private List<UserPermissionDisplayResponse> mergePermissions(UserApp user) {
+        Map<String, UserPermissionDisplayResponse> map = new LinkedHashMap<>();
+
+        if (user.getRole() != null && user.getRole().getPermissions() != null) {
+            for (Permission p : user.getRole().getPermissions()) {
+                UserPermissionDisplayResponse upr = UserPermissionDisplayResponse.builder()
+                        .id(p.getId())
+                        .permissionName(p.getName().name())
+                        .description(p.getDescription())
+                        .resource(p.getResource())
+                        .action(p.getAction())
+                        .active(true)
+                        .build();
+                map.put(p.getName().name(), upr);
+            }
+        }
+
+        if (user.getUserPermissions() != null) {
+            for (var up : user.getUserPermissions()) {
+                UserPermissionDisplayResponse upr = userMapper.toUserPermissionDisplayResponse(up);
+                if (upr != null && upr.getPermissionName() != null) {
+                    map.put(upr.getPermissionName(), upr);
+                }
+            }
+        }
+
+        return map.values().stream().toList();
+    }
+
 
     private Long getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.getPrincipal() instanceof CustomUserDetails userDetails) {
             return userDetails.getUser().getId();
         }
-        return null;
+        throw new ResourceNotFoundException("Current user not found");
     }
 }

@@ -12,12 +12,22 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.dao.DataIntegrityViolationException;
 
+import jakarta.validation.ConstraintViolationException;
 import java.util.HashMap;
 import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalHandler {
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<HashMap<String, String>> handleConstraintViolation(ConstraintViolationException ex) {
+        HashMap<String, String> errors = new HashMap<>();
+        errors.put("error", "Le prix unitaire doit être supérieur à 0");
+        errors.put("status", "400");
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<HashMap<String, String>> handleValidationErrors(MethodArgumentNotValidException ex) {
@@ -105,6 +115,34 @@ public class GlobalHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errors);
     }
 
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, String>> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        String rootMsg = null;
+        if (ex.getMostSpecificCause() != null) {
+            rootMsg = ex.getMostSpecificCause().getMessage();
+        } else if (ex.getCause() != null) {
+            rootMsg = ex.getCause().getMessage();
+        } else {
+            rootMsg = ex.getMessage();
+        }
+
+        String clientMessage = "Violation d'intégrité : impossible d'effectuer l'opération car la ressource est référencée ailleurs.";
+
+        if (rootMsg != null) {
+            String lower = rootMsg.toLowerCase();
+            if (lower.contains("fk_commande_fournisseur") || lower.contains("commande_fournisseur")) {
+                clientMessage = "Impossible de supprimer le fournisseur : il est utilisé par une ou plusieurs commandes fournisseurs.";
+            } else if (lower.contains("foreign key") || lower.contains("constraint")) {
+                clientMessage = "Impossible de supprimer la ressource : elle est référencée par une autre entité.";
+            }
+        }
+
+        Map<String, String> error = new HashMap<>();
+        error.put("error", clientMessage);
+        error.put("status", "409");
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<HashMap<String, String>> handleGlobal(Exception ex) {
         HashMap<String, String> errors = new HashMap<>();
@@ -114,6 +152,3 @@ public class GlobalHandler {
     }
 
 }
-
-
-

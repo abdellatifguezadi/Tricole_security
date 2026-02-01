@@ -8,10 +8,11 @@ import org.springframework.web.bind.annotation.*;
 import org.tricol.supplierchain.dto.request.FournisseurRequestDTO;
 import org.tricol.supplierchain.dto.request.FournisseurUpdateDTO;
 import org.tricol.supplierchain.dto.response.FournisseurResponseDTO;
-import org.tricol.supplierchain.entity.Fournisseur;
 import org.tricol.supplierchain.service.inter.FournisseurService;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/fournisseurs")
@@ -38,9 +39,11 @@ public class FournisseurController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('FOURNISSEUR_DELETE')")
-    public ResponseEntity<String> deleteFournisseur(@PathVariable Long id) {
+    public ResponseEntity<Map<String, String>> deleteFournisseur(@PathVariable Long id) {
         fournisseurService.deleteFournisseur(id);
-        return ResponseEntity.ok("Fournisseur avec id " +id +" est supprimé" );
+        Map<String, String> body = new HashMap<>();
+        body.put("message", "Fournisseur avec id " + id + " est supprimé");
+        return ResponseEntity.ok(body);
     }
 
 

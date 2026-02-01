@@ -12,7 +12,9 @@ import org.tricol.supplierchain.dto.response.BonSortieResponseDTO;
 import org.tricol.supplierchain.enums.Atelier;
 import org.tricol.supplierchain.service.inter.BonSortieService;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RequiredArgsConstructor
 @RestController
@@ -47,13 +49,15 @@ public class BonSortieController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('BON_SORTIE_DELETE')")
-    public ResponseEntity<String> deleteBonSortie(@PathVariable Long id) {
+    public ResponseEntity<Map<String, String>> deleteBonSortie(@PathVariable Long id) {
         bonSortieService.deleteBonSortie(id);
-        return ResponseEntity.ok("Bon de sortie avec id " +id +" est supprimé" );
+        Map<String, String> body = new HashMap<>();
+        body.put("message", "Bon de sortie avec id " + id + " est supprimé");
+        return ResponseEntity.ok(body);
     }
 
     @GetMapping("/atelier/{atelier}")
-    @PreAuthorize("hasAuthority('BONSORTIE_READ')")
+    @PreAuthorize("hasAuthority('BON_SORTIE_READ')")
     public ResponseEntity<List<BonSortieResponseDTO>> getBonSortiesByAtelier(@PathVariable Atelier atelier) {
         List<BonSortieResponseDTO> bonSorties = bonSortieService.getBonSortiesByAtelier(atelier);
         return ResponseEntity.ok(bonSorties);
@@ -69,9 +73,11 @@ public class BonSortieController {
 
     @PutMapping("/annulation/{id}")
     @PreAuthorize("hasAuthority('BON_SORTIE_CANCEL')")
-    public ResponseEntity<String> annulationBonSortie(@PathVariable Long id) {
+    public ResponseEntity<Map<String, String>> annulationBonSortie(@PathVariable Long id) {
         bonSortieService.annulationBonSortie(id);
-        return ResponseEntity.ok("Bon de sortie avec id " +id +" est annulé" );
+        Map<String, String> body = new HashMap<>();
+        body.put("message", "Bon de sortie avec id " + id + " est annulé");
+        return ResponseEntity.ok(body);
     }
 
     @PutMapping("/validation/{id}")
