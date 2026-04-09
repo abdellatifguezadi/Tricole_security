@@ -79,9 +79,6 @@ public class BonSortieServiceImpl implements BonSortieService {
                 .stream()
                 .map(bonSortieMapper::toResponseDTO)
                 .toList();
-        if (Bons.isEmpty()) {
-            throw new ResourceNotFoundException("Aucun bon de sortie trouvé.");
-        }
         return Bons;
     }
 
@@ -111,10 +108,6 @@ public class BonSortieServiceImpl implements BonSortieService {
                 .stream()
                 .map(bonSortieMapper::toResponseDTO)
                 .toList();
-        if (Bons.isEmpty()) {
-            throw new ResourceNotFoundException("Aucun bon de sortie trouvé pour l'atelier " + atelier);
-        }
-
         return Bons;
     }
 
