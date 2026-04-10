@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.dao.DataIntegrityViolationException;
 
+import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import java.util.HashMap;
 import java.util.Map;
@@ -24,7 +25,11 @@ public class GlobalHandler {
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<HashMap<String, String>> handleConstraintViolation(ConstraintViolationException ex) {
         HashMap<String, String> errors = new HashMap<>();
-        errors.put("error", "Le prix unitaire doit être supérieur à 0");
+        String message = ex.getConstraintViolations().stream()
+                .findFirst()
+                .map(ConstraintViolation::getMessage)
+                .orElse("Contrainte de validation non respectée");
+        errors.put("error", message);
         errors.put("status", "400");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
     }
@@ -62,6 +67,14 @@ public class GlobalHandler {
         errors.put("error", ex.getMessage());
         errors.put("status", "404");
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errors);
+    }
+
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<HashMap<String, String>> handleBusinessException(BusinessException ex) {
+        HashMap<String, String> errors = new HashMap<>();
+        errors.put("error", ex.getMessage());
+        errors.put("status", "400");
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
@@ -141,6 +154,16 @@ public class GlobalHandler {
         error.put("error", clientMessage);
         error.put("status", "409");
         return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
+
+    @ExceptionHandler(StockInsuffisantException.class)
+    public ResponseEntity<Map<String, Object>> handleStockInsuffisant(StockInsuffisantException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("error", ex.getMessage());
+        body.put("status", "409");
+        body.put("numeroBonSortie", ex.getNumeroBonSortie());
+        body.put("deficits", ex.getDeficits());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
     @ExceptionHandler(Exception.class)

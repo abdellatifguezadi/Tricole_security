@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.tricol.supplierchain.dto.request.CommandeFournisseurCreateDTO;
 import org.tricol.supplierchain.dto.request.LigneCommandeCreateDTO;
@@ -26,8 +27,10 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -159,6 +162,7 @@ public class GestionStockImpl implements GestionStockService {
     }
 
     @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public List<CommandeFournisseurResponseDTO> createCommandeFournisseurEnCasUrgente(List<DeficitStockResponseDTO> deficits) {
 
         Map<Long, List<DeficitStockResponseDTO>> deficitsByFournisseur = deficits
@@ -173,7 +177,7 @@ public class GestionStockImpl implements GestionStockService {
                     .stream()
                     .map(deficit -> LigneCommandeCreateDTO
                             .builder()
-                            .prixUnitaire(getDernierePrixAchat(key, deficit.getProduitId()))
+                            .prixUnitaire(prixReferencePourCommandeUrgente(deficit.getProduitId(), key))
                             .produitId(deficit.getProduitId())
                             .quantite(deficit.getQuantiteManquante().add(new BigDecimal("100.00")))
                             .build()
@@ -194,22 +198,32 @@ public class GestionStockImpl implements GestionStockService {
     @Override
     public List<DeficitStockResponseDTO> verifyStockPourBonSortie(BonSortie bonSortie){
         List<DeficitStockResponseDTO> deficits = new ArrayList<>();
+        Map<Long, BigDecimal> stockRestantParProduit = new HashMap<>();
 
-        for (LigneBonSortie ligne : bonSortie.getLigneBonSorties()){
-            BigDecimal stockDisponible = getQuantiteDisponible(ligne.getProduit().getId());
-            if (stockDisponible.compareTo(ligne.getQuantite()) < 0){
-                BigDecimal quantiteManquante = ligne.getQuantite().subtract(stockDisponible);
+        for (LigneBonSortie ligne : bonSortie.getLigneBonSorties()) {
+            Long produitId = ligne.getProduit().getId();
+            BigDecimal stockDispo = stockRestantParProduit.computeIfAbsent(produitId, id -> {
+                Produit p = produitRepository.findById(id)
+                        .orElseThrow(() -> new ResourceNotFoundException("Produit non trouvé avec l'id " + id));
+                return p.getStockActuel() != null ? p.getStockActuel() : BigDecimal.ZERO;
+            });
+
+            if (stockDispo.compareTo(ligne.getQuantite()) < 0) {
+                BigDecimal quantiteManquante = ligne.getQuantite().subtract(stockDispo);
                 DeficitStockResponseDTO deficit = DeficitStockResponseDTO
                         .builder()
-                        .produitId(ligne.getProduit().getId())
+                        .produitId(produitId)
                         .nomProduit(ligne.getProduit().getNom())
                         .referenceProduit(ligne.getProduit().getReference())
                         .quantiteDemandee(ligne.getQuantite())
-                        .quantiteDisponible(stockDisponible)
+                        .quantiteDisponible(stockDispo)
                         .quantiteManquante(quantiteManquante)
-                        .fournisseurId(getFournisseursSuggeresPourProduit(ligne.getProduit().getId()).getId())
+                        .fournisseurId(getFournisseursSuggeresPourProduit(produitId).getId())
                         .build();
                 deficits.add(deficit);
+                stockRestantParProduit.put(produitId, BigDecimal.ZERO);
+            } else {
+                stockRestantParProduit.put(produitId, stockDispo.subtract(ligne.getQuantite()));
             }
         }
         return deficits;
@@ -261,9 +275,30 @@ public class GestionStockImpl implements GestionStockService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    private BigDecimal getDernierePrixAchat(Long produitId,Long fournisseurId){
-        return ligneCommandeRepository
+ 
+    private BigDecimal prixReferencePourCommandeUrgente(Long produitId, Long fournisseurId) {
+        Optional<BigDecimal> puDernierLot = lotStockRepository
+                .findTopByProduit_IdOrderByDateEntreeDesc(produitId)
+                .map(LotStock::getPrixUnitaireAchat)
+                .filter(p -> p != null && p.compareTo(BigDecimal.ZERO) > 0);
+        if (puDernierLot.isPresent()) {
+            return puDernierLot.get();
+        }
+        Optional<BigDecimal> puLigneMemeFournisseur = ligneCommandeRepository
                 .findDernierPrixAchat(produitId, fournisseurId)
-                .orElse(BigDecimal.ZERO);
+                .filter(p -> p.compareTo(BigDecimal.ZERO) > 0);
+        if (puLigneMemeFournisseur.isPresent()) {
+            return puLigneMemeFournisseur.get();
+        }
+        Optional<BigDecimal> puDerniereLigneProduit = ligneCommandeRepository
+                .findDernierPrixUnitaireByProduitId(produitId);
+        return resolvePrixPourLigneUrgente(puDerniereLigneProduit.orElse(BigDecimal.ZERO));
+    }
+
+    private static BigDecimal resolvePrixPourLigneUrgente(BigDecimal dernierPrix) {
+        if (dernierPrix != null && dernierPrix.compareTo(BigDecimal.ZERO) > 0) {
+            return dernierPrix;
+        }
+        return new BigDecimal("0.01");
     }
 }

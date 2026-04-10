@@ -14,8 +14,22 @@ import java.util.Optional;
 public interface LigneCommandeRepository extends JpaRepository<LigneCommande, Long> {
     boolean existsByProduitId(Long produitId);
 
+    @Query(value = """
+            SELECT l.prix_unitaire FROM lignes_commande l
+            INNER JOIN commande_fournisseur c ON l.commande_id = c.id
+            WHERE l.produit_id = :produitId
+            ORDER BY c.date_commande DESC, l.id DESC
+            LIMIT 1
+            """, nativeQuery = true)
+    Optional<BigDecimal> findDernierPrixUnitaireByProduitId(@Param("produitId") Long produitId);
 
-    @Query("SELECT l.prixUnitaire FROM LigneCommande l WHERE l.produit.id = :produitId ORDER BY l.commande.dateCommande DESC LIMIT 1")
+    @Query(value = """
+            SELECT l.prix_unitaire FROM lignes_commande l
+            INNER JOIN commande_fournisseur c ON l.commande_id = c.id
+            WHERE l.produit_id = :produitId AND c.fournisseur_id = :fournisseurId
+            ORDER BY c.date_commande DESC, l.id DESC
+            LIMIT 1
+            """, nativeQuery = true)
     Optional<BigDecimal> findDernierPrixAchat(@Param("produitId") Long produitId, @Param("fournisseurId") Long fournisseurId);
 
 }

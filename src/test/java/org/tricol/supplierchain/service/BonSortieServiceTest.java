@@ -19,6 +19,7 @@ import org.tricol.supplierchain.enums.TypeMouvement;
 import org.tricol.supplierchain.exception.BusinessException;
 import org.tricol.supplierchain.mapper.BonSortieMapper;
 import org.tricol.supplierchain.repository.BonSortieRepository;
+import org.tricol.supplierchain.repository.LigneCommandeRepository;
 import org.tricol.supplierchain.repository.LotStockRepository;
 import org.tricol.supplierchain.repository.MouvementStockRepository;
 import org.tricol.supplierchain.repository.ProduitRepository;
@@ -51,6 +52,8 @@ public class BonSortieServiceTest {
     @Mock
     ProduitRepository produitRepository;
     @Mock
+    LigneCommandeRepository ligneCommandeRepository;
+    @Mock
     MouvementStockRepository mouvementStockRepository;
     @Mock
     BonSortieMapper bonSortieMapper;
@@ -81,6 +84,11 @@ public class BonSortieServiceTest {
                 .ligneBonSorties(List.of(ligne))
                 .motif(PRODUCTION)
                 .build();
+
+        lenient().when(produitRepository.findById(1L)).thenReturn(Optional.of(produit));
+        lenient().when(ligneCommandeRepository.findDernierPrixUnitaireByProduitId(anyLong()))
+                .thenReturn(Optional.empty());
+        lenient().when(gestionStockService.verifyStockPourBonSortie(any())).thenReturn(List.of());
     }
 
 
@@ -113,7 +121,7 @@ public class BonSortieServiceTest {
         verify(bonSortieRepository,times(1)).save(any(BonSortie.class));
 
         assertThat(lotStock.getQuantiteRestante()).isEqualTo(new BigDecimal("10"));
-        assertThat(bonSortie.getMontantTotal()).isEqualTo(new BigDecimal("50"));
+        assertThat(bonSortie.getMontantTotal()).isEqualByComparingTo(new BigDecimal("50"));
         assertThat(produit.getStockActuel()).isEqualTo(new BigDecimal("20"));
 
 
@@ -163,7 +171,7 @@ public class BonSortieServiceTest {
         assertThat(lotStock1.getQuantiteRestante()).isEqualTo(BigDecimal.ZERO);
         assertThat(lotStock2.getQuantiteRestante()).isEqualTo(BigDecimal.ZERO);
         assertThat(lotStock3.getQuantiteRestante()).isEqualTo(new BigDecimal("4"));
-        assertThat(bonSortie.getMontantTotal()).isEqualTo(new BigDecimal("64"));
+        assertThat(bonSortie.getMontantTotal()).isEqualByComparingTo(new BigDecimal("64"));
         assertThat(produit.getStockActuel()).isEqualTo(new BigDecimal("20"));
 
 
@@ -174,6 +182,8 @@ public class BonSortieServiceTest {
     @Test
     @DisplayName("Scénario 3 : Sortie avec stock insuffisant (gestion d'erreur)")
     public void testStockInsuffisant() {
+        produit.setStockActuel(new BigDecimal("7"));
+
         LotStock lotStock1 = LotStock.builder()
                 .id(1L)
                 .quantiteRestante(new BigDecimal("5"))
@@ -199,7 +209,7 @@ public class BonSortieServiceTest {
         verify(mouvementStockRepository, never()).save(any(MouvementStock.class));
         verify(lotStockRepository, never()).save(any(LotStock.class));
         verify(bonSortieRepository, never()).save(any(BonSortie.class));
-        assertThat(produit.getStockActuel()).isEqualTo(new BigDecimal("30"));
+        assertThat(produit.getStockActuel()).isEqualTo(new BigDecimal("7"));
 
     }
 
@@ -237,7 +247,7 @@ public class BonSortieServiceTest {
 
         assertThat(lotStock1.getQuantiteRestante()).isEqualTo(BigDecimal.ZERO);
         assertThat(lotStock2.getQuantiteRestante()).isEqualTo(BigDecimal.ZERO);
-        assertThat(bonSortie.getMontantTotal()).isEqualTo(new BigDecimal("55"));
+        assertThat(bonSortie.getMontantTotal()).isEqualByComparingTo(new BigDecimal("55"));
         assertThat(produit.getStockActuel()).isEqualTo(new BigDecimal("20"));
 
 
@@ -271,7 +281,7 @@ public class BonSortieServiceTest {
 
         assertThat(produit.getStockActuel()).isEqualTo(new BigDecimal("20"));
 
-        assertThat(bonSortie.getMontantTotal()).isEqualTo(new BigDecimal("50"));
+        assertThat(bonSortie.getMontantTotal()).isEqualByComparingTo(new BigDecimal("50"));
     }
 
     @Test

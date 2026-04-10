@@ -1,15 +1,12 @@
 package org.tricol.supplierchain.service;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.tricol.supplierchain.dto.request.BonSortieRequestDTO;
 import org.tricol.supplierchain.dto.request.BonSortieUpdateDTO;
 import org.tricol.supplierchain.dto.request.LigneBonSortieRequestDTO;
 import org.tricol.supplierchain.dto.response.BonSortieResponseDTO;
-import org.tricol.supplierchain.dto.response.CommandeFournisseurResponseDTO;
 import org.tricol.supplierchain.dto.response.DeficitStockResponseDTO;
 import org.tricol.supplierchain.entity.*;
 import org.tricol.supplierchain.enums.Atelier;
@@ -20,6 +17,7 @@ import org.tricol.supplierchain.exception.ResourceNotFoundException;
 import org.tricol.supplierchain.exception.StockInsuffisantException;
 import org.tricol.supplierchain.mapper.BonSortieMapper;
 import org.tricol.supplierchain.repository.BonSortieRepository;
+import org.tricol.supplierchain.repository.LigneCommandeRepository;
 import org.tricol.supplierchain.repository.LotStockRepository;
 import org.tricol.supplierchain.repository.MouvementStockRepository;
 import org.tricol.supplierchain.repository.ProduitRepository;
@@ -38,6 +36,7 @@ public class BonSortieServiceImpl implements BonSortieService {
 
     private final BonSortieRepository bonSortieRepository;
     private final ProduitRepository produitRepository;
+    private final LigneCommandeRepository ligneCommandeRepository;
     private  final LotStockRepository  lotStockRepository;
     private final MouvementStockRepository mouvementStockRepository;
     private final BonSortieMapper bonSortieMapper;
@@ -155,19 +154,19 @@ public class BonSortieServiceImpl implements BonSortieService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public BonSortieResponseDTO validationBonSortie(Long id) {
         BonSortie bonSortie = bonSortieRepository.findById(id)
                 .orElseThrow(()-> new ResourceNotFoundException("Bon de sortie non trouvé avec l'id " + id));
 
         if(bonSortie.getStatut() != StatutBonSortie.BROUILLON) {
-            throw new BusinessException("Seul les bons de sortie en statut BROUILLON peuvent être annulés.");
+            throw new BusinessException("Seul les bons de sortie en statut BROUILLON peuvent être validés.");
         }
 
         List<DeficitStockResponseDTO> deficits = gestionStockService.verifyStockPourBonSortie(bonSortie);
 
         if (!deficits.isEmpty()){
-            List<CommandeFournisseurResponseDTO> commandes =  gestionStockService.createCommandeFournisseurEnCasUrgente(deficits);
-            commandes.forEach(commande -> System.err.println(commande.getId()));
+            gestionStockService.createCommandeFournisseurEnCasUrgente(deficits);
             throw new StockInsuffisantException(bonSortie.getNumeroBon(), deficits);
         }
 
@@ -190,34 +189,33 @@ public class BonSortieServiceImpl implements BonSortieService {
 
             BigDecimal montantLigne = BigDecimal.ZERO;
 
-            BigDecimal totalDisponible = lotStocks.stream()
-                    .map(LotStock::getQuantiteRestante)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-            if (totalDisponible.compareTo(BigDecimal.ZERO) <= 0) {
-                BigDecimal stockProduit = produit.getStockActuel() != null ? produit.getStockActuel() : BigDecimal.ZERO;
-                totalDisponible = stockProduit;
-            }
-
-            if (ligne.getQuantite().compareTo(totalDisponible) > 0) {
+            BigDecimal stockProduit = produit.getStockActuel() != null ? produit.getStockActuel() : BigDecimal.ZERO;
+            if (ligne.getQuantite().compareTo(stockProduit) > 0) {
                 throw new BusinessException("Stock insuffisant pour le produit : " + produit.getNom());
             }
 
-            if (lotStocks.isEmpty()) {
-                BigDecimal quantiteALever = quantiteRestante;
-                BigDecimal prixUnitaire = BigDecimal.ZERO;
-                try {
-                    java.lang.reflect.Method m = Produit.class.getMethod("getPrixUnitaireAchat");
-                    Object v = m.invoke(produit);
-                    if (v instanceof BigDecimal) prixUnitaire = (BigDecimal) v;
-                } catch (Exception ignored) {
+            BigDecimal quantitePriseSurLots = BigDecimal.ZERO;
+
+            for (LotStock lotStock : lotStocks) {
+
+                if (quantiteRestante.compareTo(BigDecimal.ZERO) <= 0) {
+                    break;
                 }
 
-                BigDecimal montantMouvement = quantiteALever.multiply(prixUnitaire != null ? prixUnitaire : BigDecimal.ZERO);
+                BigDecimal quantiteDisponible = lotStock.getQuantiteRestante();
+
+                if (quantiteDisponible.compareTo(BigDecimal.ZERO) <= 0) {
+                    continue;
+                }
+
+                BigDecimal quantiteALever = quantiteDisponible.min(quantiteRestante);
+
+                BigDecimal prixUnitaireLot = lotStock.getPrixUnitaireAchat() != null ? lotStock.getPrixUnitaireAchat() : BigDecimal.ZERO;
+                BigDecimal montantMouvement = quantiteALever.multiply(prixUnitaireLot).setScale(2, BigDecimal.ROUND_HALF_UP);
 
                 MouvementStock mv = MouvementStock.builder()
                         .produit(produit)
-                        .lotStock(null)
+                        .lotStock(lotStock)
                         .typeMouvement(TypeMouvement.SORTIE)
                         .quantite(quantiteALever)
                         .dateMouvement(LocalDateTime.now())
@@ -226,44 +224,13 @@ public class BonSortieServiceImpl implements BonSortieService {
                         .build();
                 mouvementStockRepository.save(mv);
 
+                lotStock.consommer(quantiteALever);
+                lotStockRepository.save(lotStock);
+
                 quantiteRestante = quantiteRestante.subtract(quantiteALever);
+                quantitePriseSurLots = quantitePriseSurLots.add(quantiteALever);
+
                 montantLigne = montantLigne.add(montantMouvement);
-            } else {
-                for(LotStock lotStock : lotStocks) {
-
-                    if (quantiteRestante.compareTo(BigDecimal.ZERO) <= 0) {
-                        break;
-                    }
-
-                    BigDecimal quantiteDisponible = lotStock.getQuantiteRestante();
-
-                    if (quantiteDisponible.compareTo(BigDecimal.ZERO) <= 0) {
-                        continue;
-                    }
-
-                    BigDecimal quantiteALever = quantiteDisponible.min(quantiteRestante);
-
-                    BigDecimal prixUnitaireLot = lotStock.getPrixUnitaireAchat() != null ? lotStock.getPrixUnitaireAchat() : BigDecimal.ZERO;
-                    BigDecimal montantMouvement = quantiteALever.multiply(prixUnitaireLot);
-
-                    MouvementStock mv = MouvementStock.builder()
-                            .produit(produit)
-                            .lotStock(lotStock)
-                            .typeMouvement(TypeMouvement.SORTIE)
-                            .quantite(quantiteALever)
-                            .dateMouvement(LocalDateTime.now())
-                            .reference(bonSortie.getNumeroBon())
-                            .motif(bonSortie.getMotif().name())
-                            .build();
-                    mouvementStockRepository.save(mv);
-
-                    lotStock.consommer(quantiteALever);
-                    lotStockRepository.save(lotStock);
-
-                    quantiteRestante = quantiteRestante.subtract(quantiteALever);
-
-                    montantLigne = montantLigne.add(montantMouvement);
-                }
             }
 
             if (quantiteRestante.compareTo(BigDecimal.ZERO) > 0) {
